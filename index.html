@@ -177,8 +177,6 @@ ol.howto li::before{content:counter(h);width:17px;height:17px;border-radius:50%;
 .paybox{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 0 4px;text-align:center}
 .paybox .ps{font:800 20px var(--f-ui);color:var(--app-navy)}
 .kv b{text-align:right;font-variant-numeric:tabular-nums}
-.kv b .cp{border:0;background:none;color:var(--app-blue);padding:0 0 0 8px;vertical-align:-3px;cursor:pointer}
-.kv b .cp.ok{color:#2e9e3f}
 .alert{border:1.5px solid var(--app-blue);border-radius:10px;background:#fff;padding:14px;display:grid;grid-template-columns:28px 1fr;gap:10px}
 .alert h4{margin:0 0 4px;font-size:15px;color:var(--app-navy)}
 .alert p{margin:0;font-size:13.5px;line-height:1.45;color:var(--app-ink)}
@@ -294,7 +292,6 @@ label.btn{text-decoration:none}
 (function(){
   /* ---------- icons ---------- */
   const I = {
-    copy:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
     back:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
     help:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4" stroke-linecap="round"/><circle cx="12" cy="16.8" r=".6" fill="currentColor"/></svg>',
     chev:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>',
@@ -505,34 +502,17 @@ label.btn{text-decoration:none}
 
     /* top up */
     tu_home:{ title:'Top up wallet', tabs:true, body: () => walletCard(false) + `<div class="sec-t">How would you like to top up?</div>` +
-        rowLink('bank','EFT','tu_eft','Fee R0.00 · reflects within 48 hours') + rowLink('clock','Immediate EFT','tu_ieft_1','PayShap · Fee 1.1%') + rowLink('bank','EFT','tu_eft','Fee R0.00 · reflects within 48 hours') + rowLink('clock','Immediate EFT','tu_imm_1','PayShap · Fee 1.1%') + rowLink('card','Linked bank card','tu_card', st.card ? `${st.card.brand} •••• ${st.card.last4} · Fee 2,5%` : 'Fee 2,5% · reflects immediately') + rowLink('cash','Cash at a store','tu_store_1','Pick n Pay or Boxer · Fee R6.00') + rowLink('atm','ATM','tu_atm','Nedbank ATM · Fee 1.7%') },
-    tu_eft:{ title:'EFT top up', body: () => head('EFT wallet top up', 0, 0, 'Follow these steps to top up your wallet. Fee R0.00.') +
-        card(`<h4>What to do</h4>${howto(['Log into your online or mobile banking app.', 'Create a beneficiary using the account details below.', 'Use your unique wallet number as the beneficiary reference', 'Your wallet number will always stay the same for future top-ups', 'Funds should reflect in your wallet within 48 hours'])}`) +
-        card(`<p class="center" style="font-size:13px">Reference number:</p><div class="code">${st.ref}</div>`, 'tint') +
-        card(`<h4>Account details</h4><div class="kv">${[['Bank name','Nedbank'],['Branch code','198765'],['Account number','1196782040'],['Account name','Telkom']].map(([k, x]) => `<span>${k}</span><b>${x}<button type="button" class="cp" data-copy="${x}" aria-label="Copy ${k.toLowerCase()}">${I.copy}</button></b>`).join('')}</div>`) +
-        card(`<h4>Prototype: how much did you pay?</h4>${inp('eftamt','Payment amount',{ pre:'R', mode:'decimal', ph:'0.00', help:'The minimum amount is R50. No fee.' })}`),
-      check: () => need('eftamt'),
-      submit: () => { if (!amountCheck('eftamt', 50, 5000)) return null; const a = r2(num(F.eftamt));
-        st.available = r2(st.available + a); addTx({ t:`EFT top up · ref ${st.ref}`, amt:a }); LAST = { amt:a }; delete F.eftamt; return 'tu_done'; },
-      foot:[B('Back','tu_home','secondary'), B("I've made the payment",'submit')] },
-    tu_imm_1:{ title:'Immediate EFT top up', body: () => head('Immediate EFT', 0, 0, "Top up your wallet with an immediate EFT payment (Fee 1.1%). You'll need to log in to your bank and make the payment in our app using PayShap.") +
-        card(`<h4>Enter your top up amount</h4>${inp('iamt','Top up amount',{ pre:'R', mode:'decimal', ph:'0.00', help:'The minimum amount you can top up is R100.' })}`),
-      live: () => { const a = num(F.iamt), el = screenEl.querySelector('#h_iamt'); if (el) el.textContent = a >= 100 ? `Fee ${R(r2(a * .011))} · Your bank will be charged ${R(r2(a + r2(a * .011)))}` : 'The minimum amount you can top up is R100.'; },
-      check: () => need('iamt'),
-      submit: () => { if (!amountCheck('iamt', 100, 5000)) return null; LAST = { amt: r2(num(F.iamt)) }; delete F.iamt; return 'tu_imm_pay'; },
-      foot:[B('Cancel','tu_home','secondary'), B('Continue','submit')] },
-    tu_imm_pay:{ state:true, auto:'act:immPaid', delay:2200, body: () => `<div class="sumbox center" style="padding:28px 18px"><div class="amt" style="font-size:20px">PayShap<br>payment platform</div><p>Confirm the payment of ${R(r2((LAST.amt || 0) * 1.011))} in your banking app…</p></div><div class="spinner" role="img" aria-label="Waiting for payment"></div>` },
-    tu_card:{ redirect: () => st.card ? 'tu_amount' : 'tu_card_none' },
+        rowLink('bank','EFT','tu_eft','Fee R0.00 · reflects within 48 hours') + rowLink('clock','Immediate EFT','tu_ieft_1','PayShap · Fee 1.1%') + rowLink('card','Linked bank card','tu_card', st.card ? `${st.card.brand} •••• ${st.card.last4} · Fee 2,5%` : 'Fee 2,5% · reflects immediately') + rowLink('cash','Cash at a store','tu_store_1','Pick n Pay or Boxer · Fee R6.00') + rowLink('atm','ATM','tu_atm','Nedbank ATM · Fee 1.7%') },
     tu_eft:{ title:'EFT top up', body: () => head('EFT wallet top up', 0, 0, 'Follow these steps to top up your wallet. Fee R0.00.') +
         card(`<h4>What to do</h4>${howto(['Log into your online or mobile banking app.', 'Create a beneficiary using the account details below.', 'Use your unique wallet number as the beneficiary reference.', 'Your wallet number will always stay the same for future top-ups.', 'Funds should reflect in your wallet within 48 hours.'])}`) +
         card(`<p class="center" style="font-size:13px">Reference number:</p><div class="code">${st.ref}</div>`, 'tint') +
         card(`<h4>Account details</h4><div class="kv cp">${[['Bank name','Nedbank'],['Branch code','198765'],['Account number','1196782040'],['Account name','Telkom']].map(([k, x]) => `<span>${k}</span><b>${x}</b><button type="button" class="cpy" data-copy="${x}" aria-label="Copy ${k.toLowerCase()}">Copy</button>`).join('')}</div>`) +
         card(`<h4>How much did you pay in?</h4>${inp('eamt','Top up amount',{ pre:'R', mode:'decimal', ph:'0.00', help:'The minimum amount you can top up is R50.' })}`) +
-        `<p class="sub center">Prototype: tap <b>I've made the payment</b> to load the amount to your wallet straight away.</p>`,
+        `<p class="sub center">Prototype: tap <b>I've paid</b> to load the amount to your wallet straight away.</p>`,
       check: () => need('eamt'),
       submit: () => { if (!amountCheck('eamt', 50, 50000)) return null; const a = r2(num(F.eamt));
         st.available = r2(st.available + a); addTx({ t:`EFT top up · Ref ${st.ref}`, amt:a }); LAST = { amt:a }; delete F.eamt; return 'tu_done'; },
-      foot:[B('Back','tu_home','secondary'), B("I've made the payment",'submit')] },
+      foot:[B('Back','tu_home','secondary'), B("I've paid",'submit')] },
     tu_ieft_1:{ title:'Immediate EFT top up', body: () => head('Immediate EFT', 0, 0, "Top up your wallet with an immediate EFT payment (Fee 1.1%). You'll need to log in to your bank and make the payment in our app using PayShap.") +
         card(`<h4>Enter your top up amount</h4>${inp('iamt','Top up amount',{ pre:'R', mode:'decimal', ph:'0.00', help:'The minimum amount you can top up is R100.' })}`),
       live: () => { const a = num(F.iamt), el = screenEl.querySelector('#h_iamt'); if (el) el.textContent = a >= 100 ? `Fee ${R(r2(a * .011))} · You'll pay ${R(r2(a + r2(a * .011)))}` : 'The minimum amount you can top up is R100.'; },
@@ -703,7 +683,6 @@ label.btn{text-decoration:none}
     retry: () => { F.otp = ''; return 'otp'; },
     home: () => { OTP = null; return 'hub'; },
     removeCard: () => { st.card = null; save(); return 'tu_home'; },
-    immPaid: () => { const a = LAST.amt || 0; if (!a || LAST.paid) return 'tu_home'; LAST.paid = true; st.available = r2(st.available + a); addTx({ t:'Immediate EFT top up · PayShap', amt:a }); return 'tu_done'; },
     paidStore: () => { const tx = settleTx(LAST.tx); if (tx) st.available = r2(st.available + tx.amt); save(); LAST = { amt: tx ? tx.amt : 0 }; return tx ? 'tu_done' : 'wallet_home'; },
     collect: () => { const tx = settleTx(LAST.tx); if (tx) st.reserved = r2(Math.max(0, st.reserved + tx.amt)); save(); return tx ? 'wd_collected' : 'wallet_home'; },
     finishSetup: () => { activate('new', `${v('first')} ${v('last')}`.trim()); return 'su_done'; },
@@ -785,8 +764,6 @@ label.btn{text-decoration:none}
     const cp = e.target.closest('[data-copy]');
     if (cp) { const t = cp.dataset.copy, ok = () => { cp.textContent = 'Copied'; setTimeout(() => { cp.textContent = 'Copy'; }, 1500); };
       try { navigator.clipboard.writeText(t).then(ok, ok); } catch(err) { ok(); } return; }
-    const cp = e.target.closest('[data-copy]');
-    if (cp) { const ok = () => { cp.classList.add('ok'); setTimeout(() => cp.classList.remove('ok'), 1200); }; try { navigator.clipboard.writeText(cp.dataset.copy).then(ok, ok); } catch(err){ ok(); } return; }
     const g = e.target.closest('[data-go]');
     if (!g || g.disabled) return;
     if (g.dataset.go === 'submit') {
