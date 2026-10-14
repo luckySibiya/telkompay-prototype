@@ -342,7 +342,8 @@ label.btn{text-decoration:none}
   let st = (() => { try { const s = JSON.parse(sessionStorage.getItem(KEY)); if (s && typeof s === 'object') return Object.assign(blank(), s); } catch(e){} return blank(); })();
   const save = () => { try { sessionStorage.setItem(KEY, JSON.stringify(st)); } catch(e){} };
   let F = {}, OTP = null, LAST = {}, gateNext = null;
-  function activate(kind, name, bal){ const fresh = !st.activated; st.activated = true; st.kind = kind; if (name) st.name = name; if (fresh && !st.txns.length && bal) { st.available = bal; } save(); }
+  const START_BAL = 1444;
+  function activate(kind, name){ st.activated = true; st.kind = kind; if (name) st.name = name; if (!st.txns.length && !st.available && !st.reserved) st.available = START_BAL; save(); }
   function addTx(t){ st.txns.unshift(Object.assign({ at: Date.now(), status:'Completed' }, t)); st.txns = st.txns.slice(0, 40); save(); }
 
   /* ---------- builders ---------- */
@@ -615,13 +616,13 @@ label.btn{text-decoration:none}
 
   /* ---------- actions ---------- */
   const ACT = {
-    demo: () => { activate('existing', '', 1444); return gateNext || 'wallet_home'; },
+    demo: () => { activate('existing', ''); return gateNext || 'wallet_home'; },
     resend: () => { if (!OTP) return 'hub'; newOtp(); return 'otp'; },
     retry: () => { F.otp = ''; return 'otp'; },
     home: () => { OTP = null; return 'hub'; },
     removeCard: () => { st.card = null; save(); return 'tu_home'; },
-    finishSetup: () => { activate('new', `${v('first')} ${v('last')}`.trim(), 0); return 'su_done'; },
-    finishVerify: () => { activate('existing', '', 1444); return 'vf_done'; },
+    finishSetup: () => { activate('new', `${v('first')} ${v('last')}`.trim()); return 'su_done'; },
+    finishVerify: () => { activate('existing', ''); return 'vf_done'; },
     reset: () => { st = blank(); save(); F = {}; OTP = null; hist = []; return 'hub'; }
   };
 
