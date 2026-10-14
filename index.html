@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0095F6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>TelkomPay Wallet Prototype</title>
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}*,*::before,*::after{box-sizing:border-box}body{margin:0;font:14px/1.4 system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: review chrome on the left (flow + step list), a 375px phone on the right running the real screens. */
+:root{
+  /* page chrome (theme-aware) */
+  --page-bg:#E7ECF2; --page-fg:#0B2A47; --page-muted:#5A6B7D; --page-line:#C9D3DE; --page-card:#FFFFFF; --page-accent:#0077C8;
+  /* app tokens taken from the Figma screens (app is light-only) */
+  --app-blue:#0095F6; --app-blue-deep:#0466B4; --app-navy:#003A70; --app-ink:#0B2F55; --app-muted:#6A7888;
+  --app-bg:#F1F3F6; --app-card:#FFFFFF; --app-line:#D6DDE5; --app-tint:#E5F3FE; --app-lime:#8FE000; --app-lime-ink:#0B2F55; --app-warn:#F5A300;
+  --f-ui:"Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono:ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --page-bg:#0D1722; --page-fg:#E3ECF5; --page-muted:#93A4B6; --page-line:#25374A; --page-card:#142233; --page-accent:#4DB6FF; color-scheme:dark } }
+:root[data-theme="dark"]{ --page-bg:#0D1722; --page-fg:#E3ECF5; --page-muted:#93A4B6; --page-line:#25374A; --page-card:#142233; --page-accent:#4DB6FF; color-scheme:dark }
+
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--page-bg);color:var(--page-fg);font-family:var(--f-ui);padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:28px 40px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;justify-content:center;align-items:center;gap:56px;flex-wrap:wrap}
+.qrcard{width:280px;max-width:100%;background:var(--page-card);border:1px solid var(--page-line);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:14px}
+.qrcard h1{margin:0;font-size:22px;font-weight:800;line-height:1.15;text-wrap:balance}
+.qrcard p{margin:0;font-size:14px;line-height:1.5;color:var(--page-muted)}
+.qrcard p.small{font-size:12.5px}
+.qr{display:block;width:100%;height:auto;border-radius:10px;image-rendering:pixelated}
+.qrurl{display:flex;align-items:center;gap:8px;min-width:0}
+.qrurl code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px var(--f-mono);color:var(--page-muted)}
+.qrurl button{font:600 13px var(--f-ui);color:#fff;background:var(--page-accent);border:0;border-radius:8px;padding:8px 12px;cursor:pointer;flex:none}
+.qrurl button:focus-visible{outline:3px solid #FFB800;outline-offset:2px}
+/* On an actual phone: hide the QR card and let the app fill the screen */
+/* Computer: show only the QR code */
+.stage{display:none}
+.wrap{min-height:calc(100vh - 68px);align-items:center}
+.qrcard{width:340px;padding:30px;text-align:center;align-items:center}
+.qrcard .qr{width:240px}
+.qrcard .qrurl{width:100%}
+@media (max-width:520px), (pointer:coarse) and (max-width:1024px){
+  .stage{display:flex}
+  .wrap{min-height:0}
+  html,body{height:100%}
+  body{padding:0;background:var(--app-bg)}
+  .wrap{display:block;height:100%}
+  .qrcard{display:none}
+  .stage{height:100%}
+  .phone{width:100%;height:100%;border-radius:0;box-shadow:none}
+}
+@media (max-width:860px){ .wrap{grid-template-columns:minmax(0,1fr);gap:24px} .rail{order:2} .stage{order:1} }
+
+/* ---------- review rail ---------- */
+.rail{display:flex;flex-direction:column;gap:20px;min-width:0}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--page-muted)}
+.rail h1{margin:6px 0 8px;font-size:30px;line-height:1.1;font-weight:800;text-wrap:balance}
+.rail p.lead{margin:0;color:var(--page-muted);line-height:1.55;max-width:56ch}
+.flowtabs{display:flex;flex-wrap:wrap;gap:8px}
+.flowtabs button{font:600 13px/1 var(--f-ui);color:var(--page-fg);background:var(--page-card);border:1px solid var(--page-line);border-radius:999px;padding:9px 14px;cursor:pointer}
+.flowtabs button[aria-pressed="true"]{background:var(--page-accent);border-color:var(--page-accent);color:#fff}
+.steps{background:var(--page-card);border:1px solid var(--page-line);border-radius:14px;padding:6px}
+.steps h2{margin:10px 12px 6px;font-size:14px;font-weight:700}
+.steps ol{list-style:none;margin:0;padding:0;counter-reset:s}
+.steps li button{counter-increment:s;width:100%;display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:center;text-align:left;font:500 14px/1.3 var(--f-ui);color:var(--page-fg);background:none;border:0;border-radius:9px;padding:9px 10px;cursor:pointer}
+.steps li button::before{content:counter(s);display:grid;place-items:center;width:24px;height:24px;border-radius:50%;border:1px solid var(--page-line);font-size:12px;font-weight:700;color:var(--page-muted);font-variant-numeric:tabular-nums}
+.steps li button:hover{background:color-mix(in srgb, var(--page-accent) 8%, transparent)}
+.steps li button[aria-current="step"]{background:color-mix(in srgb, var(--page-accent) 14%, transparent);font-weight:700}
+.steps li button[aria-current="step"]::before{background:var(--page-accent);border-color:var(--page-accent);color:#fff}
+.steps small{display:block;font-weight:400;color:var(--page-muted);font-size:12px}
+.note{font-size:13px;color:var(--page-muted);line-height:1.5;border-top:1px solid var(--page-line);padding-top:14px}
+.note b{color:var(--page-fg)}
+
+/* ---------- phone ---------- */
+.stage{display:flex;flex-direction:column;align-items:center;gap:12px}
+.phone{width:375px;max-width:100%;height:760px;border-radius:34px;background:var(--app-bg);overflow:hidden;position:relative;display:flex;flex-direction:column;color:var(--app-ink);box-shadow:0 0 0 10px #0B1622, 0 24px 60px rgba(4,20,40,.35);color-scheme:light}
+@media (max-width:860px){ .stage{position:static} }
+.hint{font-size:12px;color:var(--page-muted)}
+
+.app-h{background:var(--app-blue);color:#fff;display:grid;grid-template-columns:44px 1fr 44px;align-items:center;padding:18px 6px 14px;position:relative;flex:none;clip-path:polygon(0 0,100% 0,100% 100%,calc(100% - 22px) calc(100% - 22px),0 calc(100% - 22px))}
+.app-h{padding-bottom:36px;margin-bottom:-22px}
+.app-h h3{margin:0;text-align:center;font-size:18px;font-weight:700}
+.icon-btn{width:40px;height:40px;display:grid;place-items:center;background:none;border:0;color:#fff;cursor:pointer;border-radius:50%}
+.icon-btn:focus-visible,.btn:focus-visible,.tile:focus-visible,.row-link:focus-visible,.flowtabs button:focus-visible,.steps button:focus-visible,.tab:focus-visible{outline:3px solid #FFB800;outline-offset:2px}
+.scroll{flex:1;overflow-y:auto;padding:22px 16px 20px;display:flex;flex-direction:column;gap:16px;scrollbar-width:thin}
+.foot{flex:none;background:#fff;padding:14px 16px 16px;display:flex;gap:12px;box-shadow:0 -10px 24px rgba(240,243,246,.95)}
+.foot .btn{flex:1}
+.tabs{flex:none;background:var(--app-blue);display:grid;grid-template-columns:repeat(5,1fr);padding:10px 4px 12px;position:relative}
+.tab{background:none;border:0;color:#fff;font:600 11px/1 var(--f-ui);display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;padding:4px 0}
+.tab.on span.ic{background:rgba(0,40,90,.35);border-radius:8px}
+.tab span.ic{width:34px;height:30px;display:grid;place-items:center}
+.tab.buy span.ic{width:58px;height:58px;margin-top:-30px;background:var(--app-lime);border-radius:50%;color:var(--app-navy);box-shadow:0 0 0 4px var(--app-blue)}
+
+/* app components */
+.ph{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.ph h2{margin:0;font-size:20px;font-weight:800;color:var(--app-navy)}
+.ph b{color:var(--app-blue);font-size:15px;font-variant-numeric:tabular-nums}
+.sub{margin:-8px 0 0;color:var(--app-muted);font-size:13.5px;line-height:1.45}
+.card{background:var(--app-card);border-radius:10px;box-shadow:0 1px 3px rgba(10,40,70,.12);padding:16px;display:flex;flex-direction:column;gap:14px}
+.card h4{margin:0;font-size:15px;font-weight:700;color:var(--app-navy)}
+.card p{margin:0;font-size:14px;line-height:1.45;color:var(--app-ink)}
+.tint{background:var(--app-tint)}
+.fld{display:flex;flex-direction:column;gap:7px;font-size:14px;color:var(--app-navy)}
+.inp{display:flex;align-items:center;gap:8px;border:1px solid var(--app-line);border-radius:8px;padding:0 14px;height:50px;background:#fff}
+.inp input{border:0;outline:0;flex:1;min-width:0;font:700 15px var(--f-ui);color:var(--app-ink);background:transparent}
+.inp:focus-within{border-color:var(--app-blue);box-shadow:0 0 0 3px rgba(0,149,246,.18)}
+.inp .pre{color:var(--app-muted);font-size:14px}
+.inp svg{color:var(--app-blue);flex:none}
+.helper{display:flex;gap:6px;font-size:12px;color:var(--app-navy);line-height:1.35}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.radios{background:var(--app-bg);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.radios .opts{display:flex;gap:24px;flex-wrap:wrap}
+.radio{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:var(--app-ink);background:none;border:0;padding:0;cursor:pointer;font-family:var(--f-ui)}
+.radio::before{content:"";width:18px;height:18px;border-radius:50%;border:1.5px solid var(--app-ink);box-sizing:border-box;flex:none}
+.radio[aria-checked="true"]::before{border:5px solid var(--app-lime);background:#fff;box-shadow:0 0 0 1.5px var(--app-lime)}
+.radios hr{border:0;border-top:1px solid var(--app-line);margin:0}
+.radios p{margin:0;font-size:13.5px;line-height:1.45;color:var(--app-ink)}
+.upload{display:flex;align-items:center;gap:14px;padding:14px;border-radius:10px;box-shadow:0 1px 4px rgba(10,40,70,.16);background:#fff}
+.upload .doc{width:48px;height:48px;border-radius:50%;background:var(--app-tint);display:grid;place-items:center;color:var(--app-navy);flex:none}
+.upload div{flex:1;min-width:0}
+.upload strong{display:block;font-size:15px;font-weight:600;color:var(--app-navy)}
+.upload small{color:var(--app-muted);font-size:13px}
+.upload button{background:none;border:0;color:var(--app-blue);cursor:pointer}
+.dropzone{display:flex;align-items:center;justify-content:center;gap:10px;height:72px;width:100%;border:2px dashed var(--app-blue);border-radius:8px;background:var(--app-tint);color:var(--app-blue);font:700 15px var(--f-ui);text-decoration:underline;cursor:pointer}
+.check{display:flex;align-items:center;gap:10px;background:none;border:0;padding:4px 0;font:700 15px var(--f-ui);color:var(--app-navy);cursor:pointer;text-align:left}
+.check u{color:var(--app-blue)}
+.check .box{width:20px;height:20px;border-radius:4px;border:1.5px solid var(--app-ink);display:grid;place-items:center;flex:none;background:#fff}
+.check[aria-checked="true"] .box{background:var(--app-lime);border-color:var(--app-lime)}
+.check[aria-checked="true"] .box::after{content:"";width:9px;height:5px;border-left:2px solid var(--app-navy);border-bottom:2px solid var(--app-navy);transform:rotate(-45deg) translate(1px,-1px)}
+.check:focus-visible,.otp input:focus-visible{outline:3px solid #FFB800;outline-offset:2px}
+.otp{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.otp input{width:100%;min-width:0;height:48px;border:1.5px solid var(--app-navy);border-radius:8px;text-align:center;font:500 22px var(--f-ui);color:var(--app-navy);background:#fff}
+.dropzone:focus-visible{outline:3px solid #FFB800;outline-offset:2px}
+.or{display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;color:var(--app-navy)}
+.or::before,.or::after{content:"";flex:1;border-top:1px solid var(--app-line)}
+.link{background:none;border:0;color:var(--app-blue);font:700 14px var(--f-ui);text-decoration:underline;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+.btn{font:700 15px/1 var(--f-ui);height:46px;border-radius:8px;cursor:pointer;padding:0 16px;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn.primary{background:var(--app-lime);color:var(--app-lime-ink);border:0}
+.btn.secondary{background:#fff;color:var(--app-blue);border:1.5px solid var(--app-blue)}
+.btn[disabled]{background:#E3E7EC;color:#A7B1BC;border:0;cursor:not-allowed}
+.btn.block{width:100%}
+.wallet .bal{background:var(--app-bg);border-radius:8px;padding:12px 14px;display:grid;grid-template-columns:1fr auto;row-gap:6px;align-items:baseline;font-size:13.5px}
+.wallet .bal b{color:var(--app-blue);text-align:right;font-variant-numeric:tabular-nums}
+.wallet .bal .big{font-size:22px;font-weight:800}
+.wallet .bal .strike{font-size:13px}
+.wallet .acts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.wallet .acts button{border:1px solid var(--app-line);background:#fff;border-radius:8px;padding:12px 6px 10px;display:flex;flex-direction:column;align-items:center;gap:6px;font:500 14px var(--f-ui);color:var(--app-navy);cursor:pointer}
+.sec-t{margin:4px 0 -6px;font-size:14px;font-weight:700;color:var(--app-navy)}
+.row-link{display:flex;align-items:center;gap:14px;background:#fff;border:0;border-radius:10px;box-shadow:0 1px 3px rgba(10,40,70,.14);padding:20px 16px;font:700 16px var(--f-ui);color:var(--app-navy);cursor:pointer;text-align:left;width:100%}
+.row-link span{flex:1}
+.row-link small{display:block;font-weight:500;font-size:12.5px;color:var(--app-muted);margin-top:3px}
+.row-link .chev{color:var(--app-blue)}
+.opt-card{display:flex;align-items:center;gap:12px;border-radius:10px;padding:16px;background:#fff;border:1px solid var(--app-line);cursor:pointer;text-align:left;font-family:var(--f-ui);width:100%}
+.opt-card div{flex:1}
+.opt-card strong{display:block;font-size:15px;color:var(--app-navy)}
+.opt-card small{font-size:13px;color:var(--app-ink)}
+.opt-card .dot{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--app-ink);flex:none}
+.opt-card[aria-checked="true"]{background:var(--app-tint);border-color:var(--app-blue);box-shadow:inset 3px 0 0 var(--app-blue)}
+.opt-card[aria-checked="true"] .dot{border:5px solid var(--app-lime)}
+ol.howto{margin:0;padding:0;list-style:none;counter-reset:h;display:flex;flex-direction:column;gap:9px}
+ol.howto li{counter-increment:h;display:grid;grid-template-columns:20px 1fr;gap:8px;font-size:14.5px;line-height:1.4;color:var(--app-navy)}
+ol.howto li::before{content:counter(h);width:17px;height:17px;border-radius:50%;background:#CDE9FD;color:var(--app-navy);font-size:11px;font-weight:700;display:grid;place-items:center;margin-top:1px}
+.code{background:#fff;border-radius:8px;padding:14px;text-align:center;font:800 24px var(--f-ui);letter-spacing:.06em;color:var(--app-navy);font-variant-numeric:tabular-nums}
+.center{text-align:center}
+.kv{display:grid;grid-template-columns:1fr auto;row-gap:8px;font-size:14.5px;color:var(--app-navy)}
+.kv b{text-align:right;font-variant-numeric:tabular-nums}
+.alert{border:1.5px solid var(--app-blue);border-radius:10px;background:#fff;padding:14px;display:grid;grid-template-columns:28px 1fr;gap:10px}
+.alert h4{margin:0 0 4px;font-size:15px;color:var(--app-navy)}
+.alert p{margin:0;font-size:13.5px;line-height:1.45;color:var(--app-ink)}
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:12px 8px;color:var(--app-muted)}
+.empty strong{color:var(--app-navy)}
+.promo{border-radius:10px;background:linear-gradient(120deg,var(--app-blue-deep),var(--app-blue));color:#fff;padding:16px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.promo strong{font-size:20px;line-height:1.1;font-weight:800}
+.promo em{color:var(--app-lime);font-style:normal}
+
+/* full-bleed states */
+.state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px 28px;text-align:center;background:#fff}
+.state h2{margin:0;font-size:24px;line-height:1.15;font-weight:800;color:var(--app-navy);text-wrap:balance}
+.state p{margin:0;color:var(--app-muted);font-size:14px;line-height:1.5}
+.ring{width:150px;height:150px;border-radius:50%;border:6px solid var(--app-lime);display:grid;place-items:center;color:var(--app-blue)}
+.spinner{width:96px;height:96px;border-radius:50%;border:8px solid var(--app-tint);border-top-color:var(--app-blue);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sumbox{width:100%;background:var(--app-tint);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:6px}
+.sumbox .amt{font-size:24px;font-weight:800;color:var(--app-navy);font-variant-numeric:tabular-nums}
+.sumbox p{color:var(--app-navy)}
+.sumbox .acct{background:#fff;border-radius:8px;padding:12px;margin-top:8px;font-size:13.5px;color:var(--app-navy)}
+
+/* camera */
+.cam{flex:1;background:var(--app-blue-deep);display:flex;align-items:center;justify-content:center;padding:24px}
+.oval{width:200px;height:290px;border-radius:50%;border:3px solid var(--app-blue);background:radial-gradient(circle at 50% 38%, #E9C4A5 0 24%, transparent 25%), radial-gradient(ellipse at 50% 92%, #3F5E7E 0 38%, transparent 39%), linear-gradient(#C9D7E4,#9FB4C8);position:relative;overflow:hidden}
+.rec{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:#E0322B;color:#fff;font:700 11px var(--f-ui);padding:4px 8px;border-radius:99px;letter-spacing:.06em}
+.progress{height:4px;background:var(--app-line);border-radius:4px;overflow:hidden}
+.progress i{display:block;height:100%;width:0;background:var(--app-lime);transition:width .2s linear}
+.camfoot{background:#fff;padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px}
+.camfoot .ttl{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--app-navy);font-size:16px}
+
+/* modal */
+.scrim{position:absolute;inset:0;background:rgba(3,25,50,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:5}
+.modal{background:#fff;border-radius:10px;width:100%;overflow:hidden}
+.modal .mb{padding:20px 18px 18px;display:flex;flex-direction:column;gap:12px}
+.modal h3{margin:0;font-size:19px;font-weight:800;color:var(--app-navy);padding-right:26px}
+.modal ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.modal li{display:grid;grid-template-columns:18px 1fr;gap:8px;font-size:13.5px;line-height:1.4;color:var(--app-navy)}
+.modal li::before{content:"✓";width:15px;height:15px;border-radius:50%;background:#CDE9FD;color:var(--app-blue);font-size:10px;font-weight:800;display:grid;place-items:center;margin-top:2px}
+.modal p{margin:0;font-size:13.5px;line-height:1.45;color:var(--app-navy)}
+.modal .mf{border-top:1px solid var(--app-line);padding:14px 18px 18px;display:flex;flex-direction:column;gap:10px}
+.modal .mf.row{flex-direction:row}
+.modal .mf.row .btn{flex:1}
+.modal .x{position:absolute;right:30px;margin-top:-2px;background:none;border:0;color:var(--app-navy);cursor:pointer;font-size:20px;line-height:1}
+
+/* hub */
+.hub-hero{background:linear-gradient(150deg,var(--app-blue) 0%, var(--app-blue-deep) 100%);color:#fff;padding:26px 20px 30px;flex:none}
+.hub-hero .brand{font-weight:800;font-size:13px;letter-spacing:.1em;text-transform:uppercase;opacity:.9}
+.hub-hero h2{margin:10px 0 6px;font-size:26px;line-height:1.1;font-weight:800}
+.hub-hero p{margin:0;font-size:14px;line-height:1.45;opacity:.92}
+.tile{display:grid;grid-template-columns:48px 1fr 20px;gap:14px;align-items:center;background:#fff;border:0;border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(10,40,70,.14);cursor:pointer;text-align:left;font-family:var(--f-ui);width:100%}
+.tile .ti{width:48px;height:48px;border-radius:12px;background:var(--app-tint);color:var(--app-blue-deep);display:grid;place-items:center}
+.tile strong{display:block;font-size:16px;color:var(--app-navy)}
+.tile small{display:block;font-size:12.5px;color:var(--app-muted);margin-top:3px;line-height:1.35}
+.tile .chev{color:var(--app-blue)}
+.tile:hover{box-shadow:0 0 0 2px var(--app-blue)}
+.pill{display:inline-block;font-size:11px;font-weight:700;color:var(--app-blue-deep);background:var(--app-tint);border-radius:99px;padding:3px 8px;margin-top:6px}
+@media (prefers-reduced-motion: reduce){ .spinner{animation:none;border-top-color:var(--app-blue)} .progress i{transition:none} }
+
+/* ---- live prototype additions ---- */
+#screen{flex:1;display:flex;flex-direction:column;min-height:0;position:relative}
+.inp input::placeholder{font-weight:400;color:#9AA6B3}
+.inp select{border:0;outline:0;flex:1;min-width:0;height:100%;font:700 15px var(--f-ui);color:var(--app-ink);background:transparent;appearance:none;-webkit-appearance:none;cursor:pointer}
+.inp select:invalid,.inp select option[value=""]{color:#9AA6B3}
+.inp input[type="date"]{min-height:46px}
+.inp.bad{border-color:#C62828;box-shadow:0 0 0 3px rgba(198,40,40,.12)}
+.err{display:flex;gap:6px;font-size:12.5px;line-height:1.35;color:#C62828}
+.err svg{flex:none;margin-top:1px}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+label.dropzone{cursor:pointer}
+label.btn{text-decoration:none}
+.sr:focus-visible + .dropzone, .dropzone:focus-within{outline:3px solid #FFB800;outline-offset:2px}
+.sms{position:absolute;top:10px;left:10px;right:10px;z-index:30;background:rgba(18,26,36,.95);color:#fff;border-radius:16px;padding:11px 14px;display:grid;grid-template-columns:30px 1fr;gap:10px;align-items:start;transform:translateY(-150%);transition:transform .35s ease;cursor:pointer;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.sms.show{transform:none}
+.sms .ico{width:30px;height:30px;border-radius:8px;background:var(--app-lime);display:grid;place-items:center;color:var(--app-navy)}
+.sms b{display:block;font-size:12.5px;opacity:.75;font-weight:600}
+.sms span{font-size:14px;line-height:1.35}
+.sms .code{display:inline;background:none;padding:0;font:800 15px var(--f-ui);letter-spacing:.08em;color:var(--app-lime)}
+.fee{font-size:13px;color:var(--app-navy);background:var(--app-tint);border-radius:8px;padding:10px 12px;font-variant-numeric:tabular-nums}
+.txs{display:flex;flex-direction:column}
+.tx{display:grid;grid-template-columns:36px 1fr auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--app-line)}
+.tx:last-child{border-bottom:0}
+.tx .txi{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--app-tint);color:var(--app-blue-deep)}
+.tx .txi svg{width:18px;height:18px}
+.tx strong{display:block;font-size:14px;color:var(--app-navy)}
+.tx small{font-size:12px;color:var(--app-muted)}
+.tx small em{font-style:normal;font-weight:700;color:#B26A00}
+.tx b{font-size:14px;color:var(--app-navy);font-variant-numeric:tabular-nums}
+.tx b.in{color:#2E7D32}
+.hub-status{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;color:var(--app-navy);background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 3px rgba(10,40,70,.14)}
+.hub-status b{font-variant-numeric:tabular-nums}
+.dotlive{display:inline-block;width:8px;height:8px;border-radius:50%;background:#B0BAC5;margin-right:6px}
+.dotlive.on{background:#5CB800}
+.reset{align-self:center;background:none;border:0;color:var(--app-muted);font:600 13px var(--f-ui);text-decoration:underline;cursor:pointer;padding:6px}
+.qrbox{display:flex;justify-content:center}
+.qrbox svg{width:180px;height:180px}
+.otp input[aria-invalid="true"]{border-color:#C62828}
+</style>
+
+<div class="wrap">
+  <div class="stage">
+    <div class="phone" id="phone"><div id="screen" aria-live="polite"></div><div class="sms" id="sms" role="status"></div></div>
+  </div>
+  <aside class="qrcard" aria-label="Open on your phone">
+    <h1>Try it on your phone</h1>
+    <p>Scan with your phone camera to open the TelkomPay wallet prototype.</p>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 37 37" class="qr" role="img" aria-label="QR code that opens this prototype"><path fill="#fff" d="M0 0h37v37h-37z"/><path class="qrline" stroke="#0b2f55" d="M2 2.5h7m2 0h1m1 0h2m5 0h3m1 0h2m2 0h7m-33 1h1m5 0h1m2 0h1m1 0h1m3 0h2m1 0h1m1 0h1m1 0h1m3 0h1m5 0h1m-33 1h1m1 0h3m1 0h1m1 0h3m3 0h1m1 0h1m2 0h4m1 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h4m6 0h1m3 0h3m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h2m1 0h7m2 0h4m2 0h1m1 0h3m1 0h1m-33 1h1m5 0h1m1 0h1m1 0h5m3 0h2m4 0h1m1 0h1m5 0h1m-33 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-25 1h1m2 0h2m1 0h1m1 0h1m2 0h4m-23 1h1m1 0h5m3 0h1m2 0h2m2 0h1m1 0h1m2 0h1m3 0h5m-31 1h2m1 0h3m1 0h2m1 0h5m1 0h2m1 0h3m1 0h1m2 0h2m1 0h2m1 0h1m-33 1h1m2 0h1m2 0h1m1 0h1m1 0h8m3 0h2m3 0h1m1 0h1m1 0h2m-31 1h1m1 0h1m1 0h1m7 0h1m1 0h1m1 0h5m1 0h3m2 0h3m-31 1h1m2 0h2m1 0h3m1 0h3m1 0h1m1 0h1m2 0h1m2 0h2m4 0h2m1 0h2m-33 1h4m3 0h2m1 0h1m4 0h1m2 0h1m3 0h2m2 0h1m4 0h2m-32 1h2m1 0h1m1 0h2m1 0h1m2 0h5m4 0h1m3 0h2m2 0h1m1 0h1m-32 1h2m1 0h2m2 0h1m2 0h1m3 0h2m2 0h1m2 0h3m1 0h3m1 0h2m-28 1h5m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m4 0h4m1 0h2m3 0h1m-33 1h3m1 0h1m2 0h2m1 0h2m2 0h1m1 0h1m1 0h2m3 0h1m2 0h2m1 0h2m1 0h1m-33 1h1m2 0h1m2 0h1m5 0h2m1 0h1m2 0h1m1 0h2m3 0h4m1 0h2m-31 1h2m1 0h2m4 0h4m2 0h1m4 0h5m1 0h5m-32 1h3m1 0h3m1 0h2m1 0h2m5 0h1m3 0h1m1 0h2m1 0h3m1 0h1m-32 1h1m1 0h4m5 0h3m1 0h3m3 0h3m1 0h2m2 0h1m2 0h1m-33 1h1m3 0h1m1 0h2m1 0h1m1 0h1m1 0h2m3 0h1m1 0h1m3 0h4m1 0h1m1 0h1m-32 1h1m1 0h1m1 0h2m1 0h1m2 0h1m5 0h1m1 0h4m1 0h2m2 0h1m1 0h2m1 0h1m-33 1h1m1 0h1m3 0h1m1 0h2m3 0h2m2 0h1m1 0h1m2 0h1m1 0h5m-21 1h2m2 0h3m2 0h1m1 0h3m2 0h1m3 0h1m1 0h1m1 0h1m-33 1h7m2 0h1m2 0h1m2 0h1m1 0h1m2 0h2m1 0h2m1 0h1m1 0h1m1 0h2m-32 1h1m5 0h1m1 0h2m1 0h1m1 0h1m3 0h2m2 0h1m1 0h2m3 0h3m-31 1h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h1m2 0h2m2 0h1m2 0h1m1 0h6m1 0h1m-32 1h1m1 0h3m1 0h1m1 0h1m3 0h2m1 0h1m2 0h2m3 0h3m2 0h2m1 0h2m-33 1h1m1 0h3m1 0h1m1 0h3m1 0h1m1 0h3m3 0h2m1 0h5m1 0h2m-31 1h1m5 0h1m2 0h5m1 0h1m4 0h4m4 0h3m-31 1h7m1 0h2m3 0h1m1 0h1m1 0h1m2 0h1m1 0h3m2 0h1m1 0h1m1 0h1"/></svg>
+    <div class="qrurl"><code id="qrurl">luckysibiya.github.io/telkompay-prototype/</code><button type="button" id="copyurl">Copy link</button></div>
+    
+  </aside>
+</div>
+
+<script>
+(function(){
+  /* ---------- icons ---------- */
+  const I = {
+    back:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
+    help:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4" stroke-linecap="round"/><circle cx="12" cy="16.8" r=".6" fill="currentColor"/></svg>',
+    chev:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>',
+    down:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>',
+    doc:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M7 3h7l4 4v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M9 11h6M9 14h4M10 18l1.5 1.5L15 16"/></svg>',
+    vid:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="7" width="12" height="10" rx="2"/><path d="M15 11l6-3v8l-6-3z"/></svg>',
+    bin:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13M10.5 11.5l3 4M13.5 11.5l-3 4"/></svg>',
+    cam:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+    info:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5" stroke-linecap="round"/></svg>',
+    check:'<svg width="74" height="74" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    clock:'<svg width="70" height="70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+    bank:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 9l9-5 9 5H3zM5 9v8M9.5 9v8M14.5 9v8M19 9v8M3 20h18"/></svg>',
+    cash:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="6" width="19" height="12" rx="1.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9v.01M18 15v.01" stroke-linecap="round" stroke-width="2.4"/></svg>',
+    atm:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 4h16M6 4v16h12V4M10 8h4v8h-4z"/></svg>',
+    card:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg>',
+    wallet:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a1 1 0 0 1-1-1V7zM4 7l11-3v3"/><path d="M15 13.5h2"/></svg>',
+    user:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 4-6 7-6s6 2 7 6"/></svg>',
+    shield:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>',
+    up:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V6M6 11l6-6 6 6"/></svg>',
+    outw:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v13M6 13l6 6 6-6"/></svg>',
+    home:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg>',
+    apps:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1"/></svg>',
+    cart:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2.5l2 11h10l2-8H7"/><circle cx="9.5" cy="19" r="1.3"/><circle cx="16.5" cy="19" r="1.3"/></svg>',
+    msg:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>',
+    box:'<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#9AA6B3" stroke-width="1.4" stroke-linejoin="round"><path d="M3 9l9-4 9 4-9 4zM3 9v7l9 4 9-4V9M12 13v7"/></svg>',
+    bulb:'<svg width="24" height="34" viewBox="0 0 16 24"><rect x="3" y="0" width="10" height="13" rx="2" fill="#2AA7F7"/><rect x="5" y="15" width="6" height="3" rx="1" fill="#8FE000"/><rect x="6" y="20" width="4" height="3" rx="1" fill="#003A70"/></svg>'
+  };
+  const MARK = '<svg width="34" height="22" viewBox="0 0 34 22" aria-hidden="true"><path d="M3 15l8-9 8 9" fill="none" stroke="#0095F6" stroke-width="5"/><rect x="24" y="12" width="6" height="6" fill="#8FE000"/></svg>';
+  const QR = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 37 37" class="qr" role="img" aria-label="QR code that opens this prototype"><path fill="#fff" d="M0 0h37v37h-37z"/><path class="qrline" stroke="#0b2f55" d="M2 2.5h7m2 0h1m1 0h2m5 0h3m1 0h2m2 0h7m-33 1h1m5 0h1m2 0h1m1 0h1m3 0h2m1 0h1m1 0h1m1 0h1m3 0h1m5 0h1m-33 1h1m1 0h3m1 0h1m1 0h3m3 0h1m1 0h1m2 0h4m1 0h1m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h4m6 0h1m3 0h3m1 0h1m1 0h3m1 0h1m-33 1h1m1 0h3m1 0h1m1 0h2m1 0h7m2 0h4m2 0h1m1 0h3m1 0h1m-33 1h1m5 0h1m1 0h1m1 0h5m3 0h2m4 0h1m1 0h1m5 0h1m-33 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-25 1h1m2 0h2m1 0h1m1 0h1m2 0h4m-23 1h1m1 0h5m3 0h1m2 0h2m2 0h1m1 0h1m2 0h1m3 0h5m-31 1h2m1 0h3m1 0h2m1 0h5m1 0h2m1 0h3m1 0h1m2 0h2m1 0h2m1 0h1m-33 1h1m2 0h1m2 0h1m1 0h1m1 0h8m3 0h2m3 0h1m1 0h1m1 0h2m-31 1h1m1 0h1m1 0h1m7 0h1m1 0h1m1 0h5m1 0h3m2 0h3m-31 1h1m2 0h2m1 0h3m1 0h3m1 0h1m1 0h1m2 0h1m2 0h2m4 0h2m1 0h2m-33 1h4m3 0h2m1 0h1m4 0h1m2 0h1m3 0h2m2 0h1m4 0h2m-32 1h2m1 0h1m1 0h2m1 0h1m2 0h5m4 0h1m3 0h2m2 0h1m1 0h1m-32 1h2m1 0h2m2 0h1m2 0h1m3 0h2m2 0h1m2 0h3m1 0h3m1 0h2m-28 1h5m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m4 0h4m1 0h2m3 0h1m-33 1h3m1 0h1m2 0h2m1 0h2m2 0h1m1 0h1m1 0h2m3 0h1m2 0h2m1 0h2m1 0h1m-33 1h1m2 0h1m2 0h1m5 0h2m1 0h1m2 0h1m1 0h2m3 0h4m1 0h2m-31 1h2m1 0h2m4 0h4m2 0h1m4 0h5m1 0h5m-32 1h3m1 0h3m1 0h2m1 0h2m5 0h1m3 0h1m1 0h2m1 0h3m1 0h1m-32 1h1m1 0h4m5 0h3m1 0h3m3 0h3m1 0h2m2 0h1m2 0h1m-33 1h1m3 0h1m1 0h2m1 0h1m1 0h1m1 0h2m3 0h1m1 0h1m3 0h4m1 0h1m1 0h1m-32 1h1m1 0h1m1 0h2m1 0h1m2 0h1m5 0h1m1 0h4m1 0h2m2 0h1m1 0h2m1 0h1m-33 1h1m1 0h1m3 0h1m1 0h2m3 0h2m2 0h1m1 0h1m2 0h1m1 0h5m-21 1h2m2 0h3m2 0h1m1 0h3m2 0h1m3 0h1m1 0h1m1 0h1m-33 1h7m2 0h1m2 0h1m2 0h1m1 0h1m2 0h2m1 0h2m1 0h1m1 0h1m1 0h2m-32 1h1m5 0h1m1 0h2m1 0h1m1 0h1m3 0h2m2 0h1m1 0h2m3 0h3m-31 1h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h1m2 0h2m2 0h1m2 0h1m1 0h6m1 0h1m-32 1h1m1 0h3m1 0h1m1 0h1m3 0h2m1 0h1m2 0h2m3 0h3m2 0h2m1 0h2m-33 1h1m1 0h3m1 0h1m1 0h3m1 0h1m1 0h3m3 0h2m1 0h5m1 0h2m-31 1h1m5 0h1m2 0h5m1 0h1m4 0h4m4 0h3m-31 1h7m1 0h2m3 0h1m1 0h1m1 0h1m2 0h1m1 0h3m2 0h1m1 0h1m1 0h1"/></svg>';
+
+  /* ---------- utilities ---------- */
+  const esc = x => String(x ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const R = n => { const [a,b] = Math.abs(n).toFixed(2).split('.'); return (n < 0 ? '-' : '') + 'R' + a.replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + '.' + b; };
+  const r2 = n => Math.round(n * 100) / 100;
+  const num = x => { const n = parseFloat(String(x ?? '').replace(/[^\d.]/g, '')); return isNaN(n) ? 0 : n; };
+  const digits = x => String(x ?? '').replace(/\D/g, '');
+  const rnd6 = () => String(Math.floor(100000 + Math.random() * 900000));
+  const luhn = d => { let s = 0, alt = false; for (let i = d.length - 1; i >= 0; i--) { let n = +d[i]; if (alt) { n *= 2; if (n > 9) n -= 9; } s += n; alt = !alt; } return s % 10 === 0; };
+  const fmtSize = b => b >= 1048576 ? (b / 1048576).toFixed(1).replace('.0', '') + 'MB' : Math.max(1, Math.round(b / 1024)) + 'KB';
+  const fmtWhen = t => new Date(t).toLocaleString('en-ZA', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+  const idDob = d => { const yy = +d.slice(0,2), cy = new Date().getFullYear() % 100; const iso = `${yy > cy ? '19' : '20'}${d.slice(0,2)}-${d.slice(2,4)}-${d.slice(4,6)}`; const t = new Date(Date.UTC(+iso.slice(0,4), +iso.slice(5,7) - 1, +iso.slice(8,10))); return (!isNaN(t) && t.toISOString().slice(0,10) === iso) ? iso : ''; };
+  const idErr = x => { const d = digits(x); if (d.length !== 13) return 'Enter your 13-digit RSA ID number.'; if (!idDob(d)) return 'This ID number has an invalid date of birth.'; if (!luhn(d)) return "This ID number isn't valid. Check the digits and try again."; return ''; };
+  const mob = x => { let d = digits(x); if (d.startsWith('27')) d = '0' + d.slice(2); return d; };
+  const mobErr = x => /^0[6-8]\d{8}$/.test(mob(x)) ? '' : 'Enter a valid SA mobile number, like 081 234 5678.';
+  const emailErr = x => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(x).trim()) ? '' : 'Enter a valid email address, like name@email.com.';
+  const v = k => String(F[k] ?? '').trim();
+
+  /* ---------- state ---------- */
+  const KEY = 'tp_proto_v2';
+  const blank = () => ({ activated:false, kind:'', name:'', available:0, reserved:0, card:null, txns:[], ref:rnd6() });
+  let st = (() => { try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && typeof s === 'object') return Object.assign(blank(), s); } catch(e){} return blank(); })();
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch(e){} };
+  let F = {}, OTP = null, LAST = {}, gateNext = null;
+  function activate(kind, name, bal){ const fresh = !st.activated; st.activated = true; st.kind = kind; if (name) st.name = name; if (fresh && !st.txns.length && bal) { st.available = bal; } save(); }
+  function addTx(t){ st.txns.unshift(Object.assign({ at: Date.now(), status:'Completed' }, t)); st.txns = st.txns.slice(0, 40); save(); }
+
+  /* ---------- builders ---------- */
+  function inp(k, label, o = {}){
+    if (F[k] === undefined && o.def !== undefined) F[k] = o.def;
+    return `<div class="fld"><label for="i_${k}">${label}</label><div class="inp" id="w_${k}">${o.pre ? `<span class="pre">${o.pre}</span>` : ''}<input id="i_${k}" data-k="${k}" type="${o.type || 'text'}" value="${esc(F[k] ?? '')}" ${o.mode ? `inputmode="${o.mode}"` : ''} ${o.ph ? `placeholder="${esc(o.ph)}"` : ''} ${o.max ? `maxlength="${o.max}"` : ''} autocomplete="${o.ac || 'off'}">${o.icon ? I[o.icon] : ''}</div><div class="err" id="e_${k}" hidden></div>${o.help ? `<div class="helper">${I.info}<span id="h_${k}">${o.help}</span></div>` : ''}</div>`;
+  }
+  function sel(k, label, opts, o = {}){
+    if (F[k] === undefined && o.def) F[k] = o.def;
+    const cur = F[k] || '';
+    return `<div class="fld"><label for="i_${k}">${label}</label><div class="inp" id="w_${k}"><select id="i_${k}" data-k="${k}" required><option value="" disabled ${cur ? '' : 'selected'}>Select</option>${opts.map(x => `<option ${x === cur ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>${I.down}</div><div class="err" id="e_${k}" hidden></div></div>`;
+  }
+  function rg(k, opts, o = {}){
+    if (F[k] === undefined && o.def) F[k] = o.def;
+    return `<div class="opts" role="radiogroup" ${o.col ? 'style="flex-direction:column;gap:14px"' : ''}>${opts.map(([val, l]) => `<button type="button" class="radio" role="radio" aria-checked="${F[k] === val}" data-rk="${k}" data-rv="${val}" ${o.re ? 'data-re="1"' : ''}>${l}</button>`).join('')}</div><div class="err" id="e_${k}" hidden></div>`;
+  }
+  function optc(k, opts, o = {}){
+    if (F[k] === undefined && o.def) F[k] = o.def;
+    return `<div style="display:flex;flex-direction:column;gap:10px" role="radiogroup">${opts.map(([val, t, s]) => `<button type="button" class="opt-card" role="radio" aria-checked="${F[k] === val}" data-rk="${k}" data-rv="${val}" ${o.re ? 'data-re="1"' : ''}><div><strong>${t}</strong><small>${s}</small></div><span class="dot"></span></button>`).join('')}</div>`;
+  }
+  const chk = (k, label) => `<button type="button" class="check" role="checkbox" aria-checked="${!!F[k]}" data-ck="${k}"><span class="box"></span><span>${label}</span></button>`;
+  function fileSlot(k, label, accept, o = {}){
+    const f = F[k];
+    return `<div class="fld"><span>${label}</span></div>` + (f
+      ? `<div class="upload"><span class="doc">${I[o.icon || 'doc']}</span><div><strong>${esc(f.name)}</strong><small>${fmtSize(f.size)}</small></div><button type="button" data-rm="${k}" aria-label="Remove ${esc(f.name)}">${I.bin}</button></div>`
+      : `<input class="sr" type="file" id="file_${k}" data-file="${k}" accept="${accept}" ${o.capture ? `capture="${o.capture}"` : ''}><label class="dropzone" for="file_${k}">${I[o.zicon || 'cam']}<span>${o.cta || 'Upload or take a photo'}</span></label>`) + `<div class="err" id="e_${k}" hidden></div>`;
+  }
+  const head = (t, n, total, sub) => `<div class="ph"><h2>${t}</h2>${n ? `<b>${n}/${total}</b>` : ''}</div>${sub ? `<p class="sub">${sub}</p>` : ''}`;
+  const card = (inner, cls = '') => `<div class="card ${cls}">${inner}</div>`;
+  const howto = items => `<ol class="howto">${items.map(i => `<li><span>${i}</span></li>`).join('')}</ol>`;
+  const rowLink = (icon, t, go, s) => `<button type="button" class="row-link" data-go="${go}"><span style="display:flex;gap:14px;align-items:center">${I[icon]}<span>${t}${s ? `<small>${s}</small>` : ''}</span></span><span class="chev">${I.chev}</span></button>`;
+  const walletCard = actions => card(`<h4 style="font-size:18px">${st.name ? esc(st.name.split(' ')[0]) + "'s wallet" : 'My wallet'}</h4><div class="bal"><span>Balance</span><b class="strike">${R(st.available + st.reserved)}</b><span>Available balance</span><b class="big">${R(st.available)}</b></div>${actions ? `<div class="acts"><button type="button" data-go="tu_home">${I.up}Top up</button><button type="button" data-go="wd_home">${I.outw}Withdraw</button></div>` : ''}`, 'wallet');
+  const B = (label, go, kind = 'primary', x = '') => [label, go, kind, x];
+  const done = (title, body, btn = 'Continue to wallet', go = 'wallet_home', icon = 'check') => ({ state:true, body: () => `<div class="ring">${I[icon]}</div><h2>${title}</h2>${typeof body === 'function' ? body() : body}`, foot:[B(btn, go)] });
+  const err = (k, m) => { const e = screenEl.querySelector('#e_' + k); if (e) { e.hidden = false; e.innerHTML = I.info + '<span>' + m + '</span>'; } const w = screenEl.querySelector('#w_' + k); if (w) w.classList.add('bad'); return false; };
+  const clearErr = k => { const e = screenEl.querySelector('#e_' + k); if (e) e.hidden = true; const w = screenEl.querySelector('#w_' + k); if (w) w.classList.remove('bad'); };
+  const need = (...ks) => ks.every(k => v(k) !== '');
+  function amountCheck(k, min, max, avail, fee = 0, step){
+    const a = num(F[k]);
+    if (!a) return err(k, 'Enter an amount.');
+    if (a < min) return err(k, `The minimum amount is ${R(min)}.`);
+    if (max && a > max) return err(k, `The maximum amount is ${R(max)}.`);
+    if (step && a % step) return err(k, `Enter an amount in multiples of ${R(step)}.`);
+    if (avail !== undefined && a + fee > avail) return err(k, `You don't have enough available balance. You can use up to ${R(Math.max(0, avail - fee))}.`);
+    return true;
+  }
+
+  /* ---------- OTP + SMS ---------- */
+  let smsTimer = null, otpTimer = null;
+  function sms(from, html){ const el = document.getElementById('sms'); el.innerHTML = `<span class="ico">${I.msg}</span><div><b>${from} · now</b><span>${html}</span></div>`; el.classList.add('show'); clearTimeout(smsTimer); smsTimer = setTimeout(() => el.classList.remove('show'), 12000); }
+  function newOtp(){ OTP.code = rnd6(); OTP.exp = Date.now() + 260000; F.otp = ''; sms(OTP.sender, `<span class="code">${OTP.code}</span> ${OTP.smsText}`); }
+  function startOtp(ctx){ OTP = Object.assign({ attempts:0 }, ctx); newOtp(); }
+
+  /* ---------- lists ---------- */
+  const COUNTRIES = ['South Africa','Botswana','Eswatini','Lesotho','Mozambique','Namibia','Zimbabwe','Other'];
+  const PROVINCES = ['Eastern Cape','Free State','Gauteng','KwaZulu-Natal','Limpopo','Mpumalanga','North West','Northern Cape','Western Cape'];
+  const INDUSTRIES = ['Agriculture','Construction','Education','Financial services','Government','Healthcare','Hospitality','ICT and telecoms','Manufacturing','Mining','Retail','Transport and logistics','Other'];
+  const EARN = ['Salary','Self-employed','Business owner','Social grant','Pension','Allowance','Investment income','Other'];
+  const BANKS = { 'Absa':'632005', 'African Bank':'430000', 'Capitec':'470010', 'Discovery Bank':'679000', 'FNB':'250655', 'Investec':'580105', 'Nedbank':'198765', 'Standard Bank':'051001', 'TymeBank':'678910' };
+  const EFT = { std:{ name:'EFT', fee:2.85 }, imm:{ name:'Immediate EFT', fee:20 } };
+
+  /* ---------- screens ---------- */
+  const S = {
+    hub:{ hub:true },
+    gate:{ over:'hub', modal:{ mark:true, title:'Activate your wallet first', html:`<p class="center">Top ups and withdrawals need an active TelkomPay wallet. Set one up, or use a demo wallet with a test balance of R1 444.00.</p>`, foot:[B('Use demo wallet','act:demo'), B('Set up wallet','su_1','secondary')] } },
+
+    /* onboarding */
+    ob_welcome:{ title:'Wallet', tabs:true, body: () =>
+      head('Welcome to Wallet', 0, 0, 'This is the new home of TelkomPay. You can now view your balance, top up wallet, send and request money, and make a withdrawal from your MyTelkom app.') +
+      `<p class="sub" style="margin-top:-4px">Set up or activate your wallet to get started.</p>` +
+      card(`<h4>Have a TelkomPay profile?</h4><p>Simply activate your account and migrate your wallet today.</p><button type="button" class="btn primary block" data-go="vf_id">Activate wallet</button>`) +
+      `<div class="or">Or</div>` +
+      card(`<h4>Don't have a TelkomPay profile?</h4><p><b>Setup</b> your wallet to <b>enjoy seamless payments, easy management,</b> and <b>exclusive benefits.</b></p><button type="button" class="btn secondary block" data-go="su_1">Setup wallet</button>`) },
+    wallet_home:{ title:'Wallet', tabs:true, redirect: () => st.activated ? null : 'ob_welcome', body: () =>
+      walletCard(true) + `<div class="sec-t">Transaction history</div>` +
+      card(st.txns.length ? `<div class="txs">${st.txns.map(t => `<div class="tx"><span class="txi">${t.amt > 0 ? I.up : I.outw}</span><div><strong>${esc(t.t)}</strong><small>${fmtWhen(t.at)}${t.status !== 'Completed' ? ` · <em>${t.status}</em>` : ''}</small></div><b class="${t.amt > 0 ? 'in' : ''}">${t.amt > 0 ? '+' : '−'}${R(Math.abs(t.amt))}</b></div>`).join('')}</div>` : `<div class="empty">${I.box}<strong>No transactions yet</strong><span>Your transactions will appear here once you get started.</span></div>`) +
+      `<div class="sec-t">Telkom offers</div><div class="promo"><strong>TAP2WIN<br>R400 <em>Million</em><br>in prizes!</strong>${I.wallet}</div>` },
+
+    /* wallet setup (new users) */
+    su_1:{ title:'Wallet setup', body: () => head('Upload document', 1, 5, 'You will need to upload your South African ID document as part of the verification process.') +
+        card(`<div class="fld"><span>Please select your ID type</span></div><div class="radios">${rg('idtype', [['smart','Smart ID card'],['green','Green book']], { def:'smart', re:true })}<hr><p>${F.idtype === 'green' ? 'Upload or capture the photo page of your green ID book.' : 'Upload or capture your Smart ID card.'} Accepted formats include PDF, PNG, JPG, JPEG with a max of 10MB.</p></div>` +
+          (F.idtype === 'green' ? fileSlot('idg', 'Upload RSA ID book (photo page)', 'image/*,application/pdf') : fileSlot('idf', 'Upload RSA ID document (Front)', 'image/*,application/pdf') + fileSlot('idb', 'Upload RSA ID document (Back)', 'image/*,application/pdf'))),
+      check: () => F.idtype === 'green' ? !!F.idg : !!(F.idf && F.idb), next:'su_2',
+      foot:[B('Cancel','ob_welcome','secondary'), B('Continue','submit')] },
+    su_2:{ title:'Wallet setup', body: () => head('Personal details', 2, 5, 'Please enter your personal details exactly as they appear on your ID.') +
+        card(inp('first','First name',{ ac:'given-name' }) + inp('middle','Middle name (optional)',{ ac:'additional-name' }) + inp('last','Last name',{ ac:'family-name' }) + inp('idno','RSA ID number',{ mode:'numeric', max:16, ph:'13 digits' }) + inp('dob','Date of birth',{ type:'date' }) + sel('country','Birth country', COUNTRIES, { def:'South Africa' })),
+      check: () => need('first','last','idno','dob','country'),
+      submit: () => { let ok = true; const nameRx = /^[A-Za-zÀ-ÿ' -]{2,}$/;
+        if (!nameRx.test(v('first'))) ok = err('first', 'Enter your first name as it appears on your ID.');
+        if (v('middle') && !nameRx.test(v('middle'))) ok = err('middle', 'Use letters only.');
+        if (!nameRx.test(v('last'))) ok = err('last', 'Enter your last name as it appears on your ID.');
+        const ie = idErr(F.idno); if (ie) ok = err('idno', ie);
+        else if (v('dob') !== idDob(digits(F.idno))) ok = err('dob', "Your date of birth doesn't match your ID number.");
+        return ok ? 'su_3' : null; },
+      foot:[B('Back','back','secondary'), B('Continue','submit')] },
+    su_3:{ title:'Wallet setup', body: () => head('Source of income', 3, 5, 'For compliance purposes we need to declare how you earn the money you use in this account. Your information is private and confidential.') +
+        card(sel('industry','Industry', INDUSTRIES) + sel('earn','How do you earn a living?', EARN) + `<div class="fld"><span>Are you a foreign tax resident?</span></div><div class="radios">${rg('taxres', [['yes','Yes'],['no','No']])}</div>`),
+      check: () => need('industry','earn','taxres'), next:'su_4',
+      foot:[B('Back','back','secondary'), B('Continue','submit')] },
+    su_4:{ title:'Wallet setup', body: () => head('Physical address', 4, 5, 'Please enter your physical address') +
+        card(inp('street','Street name &amp; number',{ ac:'address-line1' }) + inp('complex','Complex (optional)',{ ac:'address-line2' }) + inp('city','City/Town',{ ac:'address-level2' }) + sel('province','Province', PROVINCES) + inp('postal','Postal code',{ mode:'numeric', max:4, ac:'postal-code' })),
+      check: () => need('street','city','province','postal'),
+      submit: () => { let ok = true; if (!/\d/.test(v('street'))) ok = err('street', 'Include your street number, like 23 Kruger Street.'); if (!/^\d{4}$/.test(v('postal'))) ok = err('postal', 'Enter a 4-digit postal code.'); return ok ? 'su_5' : null; },
+      foot:[B('Back','back','secondary'), B('Continue','submit')] },
+    su_5:{ title:'Wallet setup', body: () => head('ID verification', 5, 5, 'Verify your identity with a video of your profile.') +
+        card(`<div class="fld"><span>Capture ID video</span></div>` + (F.vid
+          ? `<div class="upload"><span class="doc">${I.vid}</span><div><strong>Profile video</strong><small>${fmtSize(F.vid.size)}</small></div><button type="button" data-rm="vid" aria-label="Remove video">${I.bin}</button></div>`
+          : `<button type="button" class="dropzone" data-go="cam_access">${I.vid}<span>Take your video</span></button>`) +
+          `<div class="err" id="e_vid" hidden></div><div class="helper">${I.info}<span>This check flashes colours. Use caution if you're photosensitive.</span></div>`),
+      check: () => !!F.vid, next:'su_submitting',
+      foot:[B('Back','back','secondary'), B('Submit','submit')] },
+    cam_access:{ over:'su_5', modal:{ title:'Camera access required', html:`<ul><li><span>Please use a device with a <b>working camera</b>.</span></li><li><span>If your current device doesn't have a working camera, you can <b>send a link to another device</b> to continue.</span></li><li><span>Make sure your <b>camera lens is clean</b> before taking the photo.</span></li></ul>`, foot:[B('Continue on this device','cam_perm'), B('Send me a link','cam_link','secondary')] } },
+    cam_link:{ over:'su_5', modal:{ title:'Continue on your phone', html:`<p>Scan this code with your phone camera to open the prototype there and record your video.</p><div class="qrbox">${QR}</div>`, foot:[B('Close','su_5')] } },
+    cam_perm:{ over:'su_5', modal:{ title:'Enable camera permissions', html:`<p><b>Please enable camera access in your device settings.</b></p><p style="font-size:12.5px">You will not be able to continue without enabling camera access.</p>`, row:true, foot:[B('Deny','su_5','secondary'), B('Allow access','cam_instr')] } },
+    cam_instr:{ over:'su_5', modal:{ title:'Verify your identity with a video of your profile.', html:`<ul><li><span>Position your face to fit into the oval shape.</span></li><li><span>Click the button to start recording a video.</span></li><li><span>Follow the on-screen instructions to guide you to complete the process.</span></li></ul><input class="sr" type="file" id="file_vid" data-file="vid" accept="video/*" capture="user">`, row:true, foot:[B('Cancel','su_5','secondary'), B('Take video','file_vid','primary','label')] } },
+    su_submitting:{ state:true, auto:'act:finishSetup', delay:1800, body: () => `<div class="spinner" role="img" aria-label="Loading"></div><h2>Submitting</h2>` },
+    su_done: done('Wallet successfully activated', () => `<p>Welcome, ${esc(v('first'))}. Your wallet has been successfully activated. You can now view your balance, top up wallet and make a withdrawal from your MyTelkom app.</p>`),
+
+    /* wallet verification (existing TelkomPay users) */
+    vf_id:{ title:'Wallet verification', body: () => head('ID verification', 1, 3, 'Enter the ID number associated with your TelkomPay account.') + card(inp('vid_no','RSA ID number',{ mode:'numeric', max:16, ph:'13 digits' })),
+      check: () => need('vid_no'), submit: () => { const e = idErr(F.vid_no); return e ? (err('vid_no', e), null) : 'vf_contact'; },
+      foot:[B('Cancel','ob_welcome','secondary'), B('Continue','submit')] },
+    vf_contact:{ title:'Wallet verification', body: () => { const em = F.ctype === 'email' || (F.ctype === undefined ? false : false);
+        if (F.ctype === undefined) F.ctype = 'mobile';
+        return head('Contact verification', 2, 3, 'Enter the email or mobile number associated with your TelkomPay account.') +
+          card(`<div class="fld"><span>Please select your contact type</span></div><div class="radios">${rg('ctype', [['mobile','Mobile number'],['email','Email address']], { col:true, re:true })}</div>` +
+            (F.ctype === 'email' ? inp('cemail','Email address',{ type:'email', mode:'email', ph:'name@email.com', ac:'email', help:"You'll receive an email with an OTP to verify your email address." })
+                                 : inp('cmobile','Mobile number',{ type:'tel', mode:'tel', ph:'081 234 5678', ac:'tel', max:15, help:"You'll receive an SMS with an OTP to verify your number." }))) +
+          chk('tc', 'I accept the <u>terms and conditions</u>'); },
+      check: () => (F.ctype === 'email' ? need('cemail') : need('cmobile')) && !!F.tc,
+      submit: () => { const isEm = F.ctype === 'email'; const e = isEm ? emailErr(F.cemail) : mobErr(F.cmobile); if (e) { err(isEm ? 'cemail' : 'cmobile', e); return null; }
+        const to = isEm ? (() => { const [u, d] = v('cemail').split('@'); return `email <b>${esc(u[0])}***@${esc(d)}</b>`; })() : `number <b>*** *** ${mob(F.cmobile).slice(-4)}</b>`;
+        startOtp({ title:'Wallet verification', step:true, to, sender: isEm ? 'Email · TelkomPay' : 'TelkomPay', smsText:'is your TelkomPay wallet verification OTP. Do not share it with anyone.', cancel:'ob_welcome', ok: () => 'vf_submitting' });
+        return 'otp'; },
+      foot:[B('Back','back','secondary'), B('Continue','submit')] },
+    otp:{ otp:true, redirect: () => OTP ? null : 'hub', title: () => OTP.title, body: () =>
+        `<div class="ph"><h2>${OTP.step ? 'Verify your contact' : 'Approve with OTP'}</h2>${OTP.step ? '<b>3/3</b>' : ''}</div>` +
+        (OTP.amount ? card(`<div class="center"><p style="color:var(--app-muted);font-size:13px">${OTP.amountLabel}</p><div style="font-size:26px;font-weight:800;color:var(--app-navy)">${R(OTP.amount)}</div></div>`, 'tint') : '') +
+        card(`<p style="font-size:15px;color:var(--app-navy)">Please enter the OTP we've sent to your ${OTP.to}</p><div class="otp">${[0,1,2,3,4,5].map(i => `<input id="otp${i}" data-otp="${i}" aria-label="Digit ${i + 1}" maxlength="1" inputmode="numeric" autocomplete="${i ? 'off' : 'one-time-code'}" value="${esc((F.otp || '')[i] || '')}">`).join('')}</div><div style="font-size:12.5px;color:var(--app-navy)">Enter OTP within <b id="otp_t">04:20</b></div><hr style="border:0;border-top:1px solid var(--app-line);margin:0"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12.5px;color:var(--app-navy)"><span>OTP not received?</span><button type="button" class="btn secondary" style="height:40px" data-go="act:resend">Resend OTP</button></div>`),
+      check: () => (F.otp || '').length === 6,
+      submit: () => { if (Date.now() > OTP.exp) return 'otp_expired';
+        if (F.otp === OTP.code) { const next = OTP.ok(); OTP = null; return next; }
+        OTP.attempts++; F.otp = ''; return OTP.attempts >= 3 ? 'otp_locked' : 'otp_wrong'; },
+      foot: () => [B('Cancel', OTP ? OTP.cancel : 'hub', 'secondary'), B('Submit','submit')] },
+    otp_wrong:{ over:'otp', modal:{ mark:true, title:'Incorrect OTP', html:`<p class="center">You have entered an incorrect OTP.<br>Please retry or request a new OTP.</p>`, row:true, foot:[B('Resend OTP','act:resend','secondary'), B('Retry','act:retry')] } },
+    otp_locked:{ over:'otp', modal:{ mark:true, title:'Incorrect OTP', html:`<p class="center">You've entered the incorrect OTP. You will not be able to continue with your verification.</p><div class="row-link" style="padding:14px;font-size:14px;cursor:default"><span style="display:flex;gap:10px;align-items:center">${I.bank}<span>Visit us in store<small>Go to your nearest Telkom store for assistance.</small></span></span></div>`, foot:[B('Back to homepage','act:home')] } },
+    otp_expired:{ over:'otp', modal:{ mark:true, title:'Expired OTP', html:`<p class="center">The OTP you've entered is expired.<br>Please retry and request a new OTP.</p>`, foot:[B('Resend OTP','act:resend')] } },
+    vf_submitting:{ state:true, auto:'act:finishVerify', delay:1800, body: () => `<div class="spinner" role="img" aria-label="Loading"></div><h2>Submitting</h2>` },
+    vf_done: done('Wallet successfully activated', '<p>Your wallet has been successfully activated. You can now view your balance, top up wallet and make a withdrawal from your MyTelkom app.</p>'),
+
+    /* top up */
+    tu_home:{ title:'Top up wallet', tabs:true, body: () => walletCard(false) + `<div class="sec-t">How would you like to top up?</div>` +
+        rowLink('card','Linked bank card','tu_card', st.card ? `${st.card.brand} •••• ${st.card.last4} · Fee 2,5%` : 'Fee 2,5% · reflects immediately') + rowLink('cash','Cash at a store','tu_store_1','Pick n Pay or Boxer · Fee R6.00') + rowLink('atm','ATM','tu_atm','Nedbank ATM · Fee 1.7%') },
+    tu_card:{ redirect: () => st.card ? 'tu_amount' : 'tu_card_none' },
+    tu_card_none:{ title:'Card top up', tabs:true, body: () => head('Linked bank card', 0, 0, "Enter an amount you'd like to top up with (Fee 2,5%). The amount will reflect in your wallet immediately.") +
+        card(`<h4>You don't have a card linked yet</h4><p>Simply link your Mastercard or Visa to pay QR codes, pay bills, and buy airtime or data with ease.</p><button type="button" class="btn primary block" data-go="tu_card_add">Link my bank card</button>`) },
+    tu_card_add:{ title:'Link bank card', body: () => head('Linked bank card', 0, 0, 'Add a Visa or Mastercard to top up your wallet.') +
+        card(`<h4>Add your card details</h4>${inp('cno','Card number',{ mode:'numeric', ph:'1234 5678 9012 3456', ac:'cc-number', max:23 })}${inp('cname','Name on card',{ ac:'cc-name' })}<div class="two">${inp('cexp','Expiry date',{ ph:'MM/YY', mode:'numeric', max:5, ac:'cc-exp' })}${inp('cvv','CVV',{ mode:'numeric', max:4, ac:'cc-csc', type:'password' })}</div>${inp('cnick','Name',{ def:'Main', help:'A nickname to help you recognise this card.' })}`),
+      check: () => need('cno','cname','cexp','cvv','cnick'),
+      submit: () => { let ok = true; const d = digits(F.cno);
+        const brand = /^4/.test(d) ? 'Visa' : /^(5[1-5]|2[2-7])/.test(d) ? 'Mastercard' : '';
+        if (d.length < 13 || d.length > 19 || !luhn(d)) ok = err('cno', "This card number isn't valid. Check the digits and try again.");
+        else if (!brand) ok = err('cno', 'Only Visa and Mastercard cards are supported.');
+        if (!/^[A-Za-z' .-]{2,}$/.test(v('cname'))) ok = err('cname', 'Enter the name as it appears on the card.');
+        const m = v('cexp').match(/^(\d{2})\/?(\d{2})$/);
+        if (!m || +m[1] < 1 || +m[1] > 12) ok = err('cexp', 'Enter the expiry date as MM/YY.');
+        else if (new Date(2000 + +m[2], +m[1], 1) <= new Date()) ok = err('cexp', 'This card has expired.');
+        if (!/^\d{3,4}$/.test(v('cvv'))) ok = err('cvv', 'Enter the 3-digit code on the back.');
+        if (!ok) return null;
+        st.card = { nick: v('cnick'), brand, last4: d.slice(-4), exp: `${m[1]}/${m[2]}` }; save();
+        delete F.cno; delete F.cvv; delete F.cexp; delete F.cname;
+        return 'tu_card_linked'; },
+      foot:[B('Cancel','back','secondary'), B('Continue','submit')] },
+    tu_card_linked: done('Card linked', () => `<p>Your ${esc(st.card?.brand)} ending in ${esc(st.card?.last4)} is ready to use for top ups.</p>`, 'Continue', 'tu_amount'),
+    tu_amount:{ title:'Card top up', redirect: () => st.card ? null : 'tu_card_none', body: () => head('Linked bank card', 0, 0, "Enter an amount you'd like to top up with (Fee 2,5%). The amount will reflect in your wallet immediately.") +
+        card(`<h4>My linked cards</h4>${optc('cardsel', [['main', `${esc(st.card.nick)}`, `${st.card.brand} •••• ${st.card.last4} · Exp ${st.card.exp}`]], { def:'main' })}<button type="button" class="link" data-go="act:removeCard">Remove this card</button>`) +
+        card(`<h4>Enter your top up amount</h4>${inp('tamt','Top up amount',{ pre:'R', mode:'decimal', ph:'0.00', help:'The minimum amount you can top up is R50. The maximum is R5 000.' })}<div class="fee" id="tfee">Fee 2,5% of the amount</div>`),
+      live: () => { const a = num(F.tamt), el = screenEl.querySelector('#tfee'); if (el) el.textContent = a ? `Fee ${R(r2(a * .025))} · Your card will be charged ${R(r2(a * 1.025))}` : 'Fee 2,5% of the amount'; },
+      check: () => need('tamt'),
+      submit: () => { if (!amountCheck('tamt', 50, 5000)) return null; const a = r2(num(F.tamt)), fee = r2(a * .025);
+        startOtp({ title:'Card top up', to:`number linked to your ${st.card.brand} card`, sender:'Card verification', smsText:`is your OTP to approve ${R(a + fee)} to TelkomPay from card •••• ${st.card.last4}.`, amount:a + fee, amountLabel:'Your card will be charged', cancel:'tu_home',
+          ok: () => { st.available = r2(st.available + a); addTx({ t:`Card top up · •••• ${st.card.last4}`, amt:a }); LAST = { amt:a }; delete F.tamt; return 'tu_done'; } });
+        return 'otp'; },
+      foot:[B('Cancel','tu_home','secondary'), B('Continue','submit')] },
+    tu_done: done('Success!', () => `<div class="sumbox center"><div class="amt">${R(LAST.amt || 0)}</div><p>Loaded to your wallet.<br>Your available balance is <b>${R(st.available)}</b></p></div>`),
+    tu_store_1:{ title:'Cash top up', body: () => head('Cash at a store', 1, 2, "Top up your wallet at a Pick n Pay or Boxer. We'll SMS you a token number (Fee R6.00).") +
+        card(`<h4>Enter your top up amount</h4>${inp('samt','Top up amount',{ pre:'R', mode:'decimal', ph:'0.00', help:'The minimum amount you can top up is R50.' })}`),
+      check: () => need('samt'),
+      submit: () => { if (!amountCheck('samt', 50, 5000)) return null; const a = r2(num(F.samt)); const ref = rnd6();
+        LAST = { amt:a, ref }; addTx({ t:'Cash top up · Pick n Pay / Boxer', amt:r2(a - 6), status:'Waiting for payment' }); delete F.samt;
+        sms('TelkomPay', `Your cash top up reference is <span class="code">${ref}</span>. Pay ${R(a)} at any Pick n Pay or Boxer till.`);
+        return 'tu_store_2'; },
+      foot:[B('Cancel','tu_home','secondary'), B('Continue','submit')] },
+    tu_store_2:{ title:'Cash top up', body: () => head('Cash at a store', 2, 2, "Top up your wallet at a Pick n Pay or Boxer. We've sent this reference to you by SMS (Fee R6.00).") +
+        card(`<p class="center" style="font-size:13px">Please give ${R(LAST.amt || 0)} to the teller with the reference number:</p><div class="code">${LAST.ref || ''}</div>`, 'tint') +
+        card(`<h4>Follow these steps</h4>${howto(["From the menu, select 'Value Added Services'", "Select 'Mobile'", "Select 'Deposit'", "Select 'uKheshe'", `Enter the reference number ${LAST.ref || ''}`])}`),
+      foot:[B('Back','tu_home','secondary'), B('Done','wallet_home')] },
+    tu_atm:{ title:'ATM top up', body: () => head('ATM', 0, 0, 'Deposit money at a Nedbank ATM to top up your wallet. The amount will reflect in your wallet immediately (Fee 1.7%).') +
+        card(`<h4>What to do</h4>${howto(['Find a <b>Nedbank ATM</b>.', 'Select to make a deposit.', 'Enter account number <b>1196782040</b>.', `Use your <b>wallet's QR number ${st.ref}</b> as a reference.`])}`),
+      foot:[B('Back','tu_home')] },
+
+    /* withdraw */
+    wd_home:{ title:'Withdraw wallet', tabs:true, body: () => walletCard(false) + `<div class="sec-t">How would you like to make a withdrawal?</div>` + rowLink('bank','EFT','wd_eft_1') + rowLink('cash','Cash at a store','wd_store_1') + rowLink('atm','Cash Express ATM','wd_atm_1') },
+    wd_eft_1:{ title:'EFT withdrawal', body: () => head('EFT', 1, 2, 'EFT withdrawals reflects within 24-48 hours') + walletCard(false) +
+        card(`<h4>How would you like to make the EFT?</h4>${optc('efttype', [['std','EFT','Fee R2.85 · 24-48 hours'],['imm','Immediate EFT','Fee R20.00 · within minutes']], { def:'std' })}`) +
+        card(`<h4>Enter your withdrawal amount</h4>${inp('wamt','Withdrawal amount',{ pre:'R', mode:'decimal', ph:'0.00', help:'The minimum amount you can withdraw is R100.' })}${inp('wdesc','Description (optional)',{ max:30 })}<div class="fee" id="wfee"></div>`),
+      live: () => { const a = num(F.wamt), f = EFT[F.efttype || 'std'].fee, el = screenEl.querySelector('#wfee'); if (el) el.textContent = a ? `Fee ${R(f)} · Total deducted from your wallet ${R(r2(a + f))}` : `Fee ${R(f)} is added to the amount you withdraw`; },
+      check: () => need('wamt'),
+      submit: () => amountCheck('wamt', 100, 0, st.available, EFT[F.efttype || 'std'].fee) ? 'wd_eft_2' : null,
+      foot:[B('Cancel','wd_home','secondary'), B('Continue','submit')] },
+    wd_eft_2:{ title:'EFT withdrawal', body: () => head('EFT', 2, 2, 'EFT withdrawals reflects within 24-48 hours') + walletCard(false) +
+        card(`<h4>Enter your own or a recipient's details</h4>${inp('rname','Name',{ def: st.name || '' })}${sel('bank','Bank', Object.keys(BANKS))}${inp('accno','Account number',{ mode:'numeric', max:13 })}${sel('acctype','Account type', ['Savings','Cheque','Transmission'])}${inp('pref','Payment reference',{ max:20 })}`),
+      check: () => need('rname','bank','accno','acctype','pref'),
+      submit: () => { let ok = true; if (!/^\d{6,13}$/.test(digits(F.accno)) || digits(F.accno).length !== v('accno').replace(/\s/g,'').length) ok = err('accno', 'Enter an account number of 6 to 13 digits.'); if (v('rname').length < 2) ok = err('rname', "Enter the account holder's name."); return ok ? 'wd_eft_3' : null; },
+      foot:[B('Back','back','secondary'), B('Continue','submit')] },
+    wd_eft_3:{ title:'EFT withdrawal', body: () => { const t = EFT[F.efttype || 'std'];
+        return card(`<h4>You're about to make an ${t.name === 'EFT' ? 'EFT' : 'Immediate EFT'}</h4><div class="kv"><span>Amount</span><b>${R(num(F.wamt))}</b><span>Fee</span><b>${R(t.fee)}</b><span>Description</span><b>${esc(v('wdesc') || '—')}</b></div>`) +
+          card(`<h4>Account details</h4><div class="kv"><span>Recipient name</span><b>${esc(v('rname'))}</b><span>Bank name</span><b>${esc(v('bank'))}</b><span>Branch code</span><b>${BANKS[v('bank')] || ''}</b><span>Account number</span><b>${esc(digits(F.accno))}</b><span>Account type</span><b>${esc(v('acctype'))}</b><span>Payment reference</span><b>${esc(v('pref'))}</b></div>`); },
+      submit: () => { const t = EFT[F.efttype || 'std'], a = r2(num(F.wamt));
+        if (a + t.fee > st.available) return 'wd_eft_1';
+        st.available = r2(st.available - a - t.fee);
+        addTx({ t:`${t.name} to ${v('bank')} · ${digits(F.accno).slice(-4)}`, amt:-r2(a + t.fee), status: F.efttype === 'imm' ? 'Completed' : 'Processing' });
+        LAST = { amt:a, name:v('rname'), acc:digits(F.accno), bank:v('bank'), imm: F.efttype === 'imm' };
+        ['wamt','wdesc','accno','pref'].forEach(k => delete F[k]);
+        return LAST.imm ? 'wd_eft_done' : 'wd_eft_pending'; },
+      foot:[B('Back','back','secondary'), B('Submit','submit')] },
+    wd_eft_pending: done('Payment pending', () => `<div class="sumbox center"><div class="amt">${R(LAST.amt || 0)}</div><p style="font-size:13px">Remaining wallet balance: ${R(st.available)}</p><div class="acct"><b>${esc(LAST.name)} · ${esc(LAST.bank)}</b><br>${esc(LAST.acc)}</div></div><p>Your EFT is on its way. It reflects in the recipient's account within 24-48 hours.</p>`, 'Continue to wallet', 'wallet_home', 'clock'),
+    wd_eft_done: done('Success!', () => `<div class="sumbox center"><div class="amt">${R(LAST.amt || 0)}</div><p style="font-size:13px">Remaining wallet balance: ${R(st.available)}</p><div class="acct"><b>${esc(LAST.name)} · ${esc(LAST.bank)}</b><br>${esc(LAST.acc)}</div></div><p>The payment will reflect in the recipient's bank account immediately.</p>`),
+    wd_store_1:{ title:'Cash withdrawal', body: () => head('Cash at a store', 1, 2, "Withdraw cash at a Pick n Pay or Boxer. We'll SMS you a token to show the teller.") + walletCard(false) +
+        card(`<h4>Enter your withdrawal amount</h4>${inp('stamt','Withdrawal amount',{ pre:'R', mode:'decimal', ph:'0.00', help:'Withdraw from R50 to R3 000, in multiples of R10.' })}`),
+      check: () => need('stamt'),
+      submit: () => { if (!amountCheck('stamt', 50, 3000, st.available, 0, 10)) return null; const a = r2(num(F.stamt)), tok = rnd6();
+        st.available = r2(st.available - a); st.reserved = r2(st.reserved + a);
+        addTx({ t:'Cash withdrawal · Pick n Pay / Boxer', amt:-a, status:'Ready to collect' }); LAST = { amt:a, tok }; delete F.stamt;
+        sms('TelkomPay', `Your cash withdrawal token is <span class="code">${tok}</span>. Show it to the teller to collect ${R(a)}.`);
+        return 'wd_store_2'; },
+      foot:[B('Cancel','wd_home','secondary'), B('Continue','submit')] },
+    wd_store_2:{ title:'Cash withdrawal', body: () => head('Cash at a store', 2, 2, "We've sent this token to you by SMS.") +
+        card(`<p class="center" style="font-size:13px">Show the teller this token to collect ${R(LAST.amt || 0)}:</p><div class="code">${LAST.tok || ''}</div>`, 'tint') +
+        card(`<h4>Follow these steps</h4>${howto(['Go to the till at any Pick n Pay or Boxer', "Tell the teller you'd like a uKheshe withdrawal", `Give the teller the token ${LAST.tok || ''}`, 'Collect your cash and slip'])}`),
+      foot:[B('Back','wd_home','secondary'), B('Done','wallet_home')] },
+    wd_atm_1:{ title:'ATM withdrawal', body: () => head('Cash Express ATM', 1, 2, 'To make the withdrawal, find a Cash Express ATM. We will create and SMS you an OTP.') + walletCard(false) +
+        card(`<h4>Enter your withdrawal amount</h4>${inp('aamt','Withdrawal amount',{ pre:'R', mode:'decimal', ph:'0.00', help:'Amounts must be in multiples of R50. Maximum R3 000 per day.' })}<button type="button" class="btn secondary block" data-go="wd_atm_find">Find a Cash Express ATM</button>`),
+      check: () => need('aamt'),
+      submit: () => { if (!amountCheck('aamt', 50, 3000, st.available, 0, 50)) return null; const a = r2(num(F.aamt)), code = rnd6();
+        const exp = new Date(Date.now() + 2 * 864e5); const expTxt = exp.toLocaleDateString('en-ZA', { day:'numeric', month:'long' });
+        st.available = r2(st.available - a); st.reserved = r2(st.reserved + a);
+        addTx({ t:'Cash Express ATM withdrawal', amt:-a, status:'Ready to collect' }); LAST = { amt:a, code, expTxt }; delete F.aamt;
+        sms('TelkomPay', `Your Cash Express ATM OTP is <span class="code">${code}</span> for ${R(a)}. It expires on ${expTxt} at 23:59.`);
+        return 'wd_atm_2'; },
+      foot:[B('Cancel','wd_home','secondary'), B('Continue','submit')] },
+    wd_atm_2:{ title:'ATM withdrawal', body: () => head('Cash Express ATM', 2, 2, 'To make the withdrawal, find a Cash Express ATM. We have sent you this OTP by SMS.') +
+        card(`<p class="center" style="font-size:13px">Your Cash Express ATM OTP to the value of ${R(LAST.amt || 0)} is:</p><div class="code">${LAST.code || ''}</div>`, 'tint') +
+        `<div class="alert">${I.bulb}<div><h4>Please note</h4><p>Your OTP expires on ${LAST.expTxt || ''} at 23:59. If not claimed, the amount will return to your available balance.</p></div></div>` +
+        card(`<h4>Teller instructions</h4>${howto(['Find your nearest Cash Express ATM', 'Select cardless transactions', `Enter the OTP ${LAST.code || ''}, the amount as well as your phone number`])}<button type="button" class="btn secondary block" data-go="wd_atm_find">Find a Cash Express ATM</button>`),
+      foot:[B('Back','wd_home','secondary'), B('Done','wallet_home')] },
+    wd_atm_find:{ title:'Find an ATM', body: () => `<div class="ph"><h2>Find a Cash Express ATM</h2></div>` + card(sel('aprov','Province', PROVINCES) + inp('acity','City/Town',{ ph:'e.g. Pretoria' })) +
+        (v('aprov') && v('acity') ? card(`<h4>Cash Express ATMs near ${esc(v('acity'))}</h4><p style="font-size:12.5px;color:var(--app-muted)">Sample results for the prototype.</p><div class="kv"><span>${esc(v('acity'))} Central Shell</span><b>1.2 km</b><span>${esc(v('acity'))} Mall Spar</span><b>2.8 km</b><span>${esc(v('acity'))} Plaza Engen</span><b>4.1 km</b></div>`) : ''),
+      check: () => need('aprov','acity'), submit: () => 'wd_atm_find',
+      foot:[B('Back','back','secondary'), B('Search','submit')] }
+  };
+
+  const FLOWS = [
+    { go:'ob_welcome', label:'Onboarding', icon:'wallet', blurb:'Activate wallet or set up a new one' },
+    { go:'su_1', label:'Wallet setup', icon:'user', blurb:'New users: ID, details, income, address, video' },
+    { go:'vf_id', label:'Wallet verification', icon:'shield', blurb:'Existing TelkomPay users: ID, contact, OTP' },
+    { go:'tu_home', label:'Wallet top up', icon:'up', blurb:'Linked card, cash at a store or ATM' },
+    { go:'wd_home', label:'Withdraw', icon:'outw', blurb:'EFT, cash at a store or Cash Express ATM' }
+  ];
+
+  /* ---------- actions ---------- */
+  const ACT = {
+    demo: () => { activate('existing', '', 1444); return gateNext || 'wallet_home'; },
+    resend: () => { if (!OTP) return 'hub'; newOtp(); return 'otp'; },
+    retry: () => { F.otp = ''; return 'otp'; },
+    home: () => { OTP = null; return 'hub'; },
+    removeCard: () => { st.card = null; save(); return 'tu_home'; },
+    finishSetup: () => { activate('new', `${v('first')} ${v('last')}`.trim(), 0); return 'su_done'; },
+    finishVerify: () => { activate('existing', '', 1444); return 'vf_done'; },
+    reset: () => { st = blank(); save(); F = {}; OTP = null; hist = []; return 'hub'; }
+  };
+
+  /* ---------- render ---------- */
+  const phone = document.getElementById('phone');
+  const screenEl = document.getElementById('screen');
+  let hist = [], cur = null, timer = null;
+  const val = x => typeof x === 'function' ? x() : x;
+
+  function btnHTML([l, g, k, x]){
+    if (x === 'label') return `<label class="btn ${k}" for="${g}">${l}</label>`;
+    return `<button type="button" class="btn ${k}" data-go="${g}">${l}</button>`;
+  }
+  const tabsHTML = () => `<nav class="tabs" aria-label="App navigation">${[['home','Home','hub'],['apps','Apps','hub'],['cart','Buy','hub'],['wallet','Wallet','wallet_home'],['user','Profile','hub']].map(([ic, l, g]) => `<button type="button" class="tab ${ic === 'cart' ? 'buy' : ''} ${ic === 'wallet' ? 'on' : ''}" data-go="${g}"><span class="ic">${I[ic]}</span>${l}</button>`).join('')}</nav>`;
+  const headerHTML = t => `<header class="app-h"><button type="button" class="icon-btn" data-go="back" aria-label="Back">${I.back}</button><h3>${t}</h3><button type="button" class="icon-btn" aria-label="Help">${I.help}</button></header>`;
+  function modalHTML(m){
+    return `<div class="scrim"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(String(m.title || 'Message').replace(/<[^>]+>/g, ''))}"><div class="mb">${m.mark ? `<div class="center">${MARK}</div>` : ''}${m.title ? `<h3 ${m.mark ? 'class="center" style="padding:0"' : ''}>${m.title}</h3><button type="button" class="x" data-go="back" aria-label="Close">×</button>` : ''}${m.html}</div><div class="mf ${m.row ? 'row' : ''}">${m.foot.map(btnHTML).join('')}</div></div></div>`;
+  }
+  function hubHTML(){
+    return `<div class="hub-hero"><div class="brand">TelkomPay · MyTelkom</div><h2>Wallet prototype</h2><p>Pick a flow and enter your own details. OTPs arrive as an SMS on screen, and money is a test balance on this device.</p></div>
+      <div class="scroll" style="padding-top:18px">
+        <div class="hub-status"><span><span class="dotlive ${st.activated ? 'on' : ''}"></span>${st.activated ? `Wallet active${st.name ? ' · ' + esc(st.name) : ''}` : 'No wallet yet'}</span>${st.activated ? `<b>${R(st.available)}</b>` : ''}</div>
+        ${FLOWS.map((f, i) => `<button type="button" class="tile" data-go="${f.go}"><span class="ti">${I[f.icon]}</span><span><strong>${i + 1}. ${f.label}</strong><small>${f.blurb}</small></span><span class="chev">${I.chev}</span></button>`).join('')}
+        <button type="button" class="reset" data-go="act:reset">Reset prototype</button>
+      </div>`;
+  }
+  function screenHTML(s){
+    if (s.hub) return hubHTML();
+    if (s.over) return screenHTML(S[s.over]) + modalHTML(s.modal);
+    const foot = val(s.foot);
+    if (s.state) return `<div class="state">${val(s.body)}</div>${foot ? `<div class="foot">${foot.map(btnHTML).join('')}</div>` : ''}`;
+    return headerHTML(val(s.title)) + `<div class="scroll">${val(s.body)}</div>` + (foot ? `<div class="foot">${foot.map(btnHTML).join('')}</div>` : '') + (s.tabs ? tabsHTML() : '');
+  }
+  function refresh(){
+    const s = S[cur] && S[cur].over ? S[S[cur].over] : S[cur];
+    if (!s) return;
+    if (s.live) s.live();
+    const pb = screenEl.querySelector('.foot [data-go="submit"]');
+    if (pb && s.check && !S[cur].over) pb.disabled = !s.check();
+  }
+  function rerender(){ const sc = screenEl.querySelector('.scroll'), top = sc ? sc.scrollTop : 0; screenEl.innerHTML = screenHTML(S[cur]); const n = screenEl.querySelector('.scroll'); if (n) n.scrollTop = top; refresh(); }
+
+  function go(sid){
+    clearTimeout(timer); clearInterval(otpTimer);
+    if (sid === 'back') { hist.pop(); sid = hist.pop() || 'hub'; }
+    if (sid.startsWith('act:')) { const next = ACT[sid.slice(4)](); if (next) go(next); return; }
+    let s = S[sid]; if (!s) return;
+    if (/^(tu_|wd_)/.test(sid) && !st.activated) { gateNext = sid; sid = 'gate'; s = S.gate; }
+    if (s.redirect) { const r = s.redirect(); if (r && r !== sid) { go(r); return; } }
+    if (hist[hist.length - 1] !== sid) hist.push(sid);
+    if (hist.length > 80) hist.shift();
+    cur = sid;
+    screenEl.innerHTML = screenHTML(s);
+    const sc = screenEl.querySelector('.scroll'); if (sc && !s.over) sc.scrollTop = 0;
+    if (s.auto) timer = setTimeout(() => go(s.auto), s.delay || 2000);
+    if (sid === 'otp') {
+      const tick = () => { const el = screenEl.querySelector('#otp_t'); if (!OTP || !el) return; const left = Math.max(0, Math.round((OTP.exp - Date.now()) / 1000)); el.textContent = String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0'); if (!left) { clearInterval(otpTimer); go('otp_expired'); } };
+      tick(); otpTimer = setInterval(tick, 1000);
+      const first = screenEl.querySelector(`#otp${Math.min((F.otp || '').length, 5)}`); if (first) setTimeout(() => first.focus(), 50);
+    }
+    refresh();
+    try { sessionStorage.setItem('tp_last', sid); } catch(e){}
+  }
+
+  /* ---------- events ---------- */
+  document.addEventListener('click', e => {
+    const smsEl = e.target.closest('#sms'); if (smsEl) { smsEl.classList.remove('show'); return; }
+    if (!phone.contains(e.target)) return;
+    const rb = e.target.closest('[data-rk]');
+    if (rb) { F[rb.dataset.rk] = rb.dataset.rv; if (rb.dataset.re) rerender(); else { rb.closest('[role="radiogroup"]').querySelectorAll('[data-rk]').forEach(b => b.setAttribute('aria-checked', b === rb)); refresh(); } return; }
+    const ck = e.target.closest('[data-ck]');
+    if (ck) { F[ck.dataset.ck] = !F[ck.dataset.ck]; ck.setAttribute('aria-checked', !!F[ck.dataset.ck]); refresh(); return; }
+    const rm = e.target.closest('[data-rm]');
+    if (rm) { delete F[rm.dataset.rm]; rerender(); return; }
+    const g = e.target.closest('[data-go]');
+    if (!g || g.disabled) return;
+    if (g.dataset.go === 'submit') {
+      const s = S[cur];
+      screenEl.querySelectorAll('.err').forEach(x => x.hidden = true); screenEl.querySelectorAll('.inp.bad').forEach(x => x.classList.remove('bad'));
+      const next = s.submit ? s.submit() : s.next;
+      if (next) go(next); else { const firstErr = screenEl.querySelector('.err:not([hidden])'); if (firstErr && firstErr.scrollIntoView) firstErr.scrollIntoView({ block:'center', behavior:'smooth' }); }
+      return;
+    }
+    go(g.dataset.go);
+  });
+
+  screenEl.addEventListener('input', e => {
+    const t = e.target;
+    if (t.dataset.otp !== undefined) {
+      const i = +t.dataset.otp; t.value = digits(t.value).slice(-1);
+      F.otp = [...screenEl.querySelectorAll('[data-otp]')].map(x => x.value || ' ').join('').trimEnd().replace(/ /g, '');
+      if (t.value && i < 5) screenEl.querySelector('#otp' + (i + 1)).focus();
+      refresh(); return;
+    }
+    if (t.dataset.k) {
+      const k = t.dataset.k; F[k] = t.value; clearErr(k);
+      if (k === 'idno' && !F.dobManual) { const d = digits(t.value); if (d.length === 13) { const dob = idDob(d); if (dob) { F.dob = dob; const di = screenEl.querySelector('#i_dob'); if (di) di.value = dob; clearErr('dob'); } } }
+      if (k === 'dob') F.dobManual = true;
+      if (k === 'cexp' && /^\d{2}$/.test(t.value) && !(e.inputType || '').startsWith('delete')) { t.value += '/'; F[k] = t.value; }
+      if (k === 'cno') { const d = digits(t.value).slice(0, 19); const f = d.replace(/(\d{4})(?=\d)/g, '$1 '); if (f !== t.value) { t.value = f; F[k] = f; } }
+      refresh();
+    }
+  });
+  screenEl.addEventListener('keydown', e => {
+    const t = e.target;
+    if (t.dataset.otp !== undefined && e.key === 'Backspace' && !t.value) { const p = screenEl.querySelector('#otp' + (+t.dataset.otp - 1)); if (p) { p.focus(); p.value = ''; } }
+  });
+  screenEl.addEventListener('paste', e => {
+    const t = e.target; if (t.dataset.otp === undefined) return;
+    const d = digits((e.clipboardData || window.clipboardData).getData('text')).slice(0, 6); if (!d) return;
+    e.preventDefault(); F.otp = d; screenEl.querySelectorAll('[data-otp]').forEach((x, i) => x.value = d[i] || ''); refresh();
+  });
+  screenEl.addEventListener('change', e => {
+    const t = e.target;
+    if (t.dataset.file) {
+      const f = t.files && t.files[0]; if (!f) return; const k = t.dataset.file;
+      const lim = k === 'vid' ? 50 : 10;
+      if (f.size > lim * 1048576) { if (k === 'vid') { go('su_5'); } else rerender(); err(k, `This file is larger than ${lim}MB. Choose a smaller file.`); return; }
+      F[k] = { name: f.name, size: f.size };
+      if (k === 'vid') go('su_5'); else rerender();
+      return;
+    }
+    if (t.dataset.k && t.tagName === 'SELECT') { F[t.dataset.k] = t.value; clearErr(t.dataset.k); refresh(); }
+  });
+  phone.addEventListener('submit', e => e.preventDefault());
+
+  const cb = document.getElementById('copyurl');
+  if (cb) cb.addEventListener('click', () => { const t = 'https://' + document.getElementById('qrurl').textContent;
+    const ok = () => { cb.textContent = 'Copied'; setTimeout(() => cb.textContent = 'Copy link', 1600); };
+    const fallback = () => { const r = document.createRange(); r.selectNodeContents(document.getElementById('qrurl')); getSelection().removeAllRanges(); getSelection().addRange(r); };
+    if (navigator.clipboard) navigator.clipboard.writeText(t).then(ok, fallback); else fallback(); });
+
+  go('hub');
+})();
+</script>
+
+</body>
+</html>
