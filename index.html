@@ -344,7 +344,8 @@ label.btn{text-decoration:none}
   let F = {}, OTP = null, LAST = {}, gateNext = null;
   const START_BAL = 1444;
   function activate(kind, name){ st.activated = true; st.kind = kind; if (name) st.name = name; if (!st.txns.length && !st.available && !st.reserved) st.available = START_BAL; save(); }
-  function addTx(t){ st.txns.unshift(Object.assign({ at: Date.now(), status:'Completed' }, t)); st.txns = st.txns.slice(0, 40); save(); }
+  function addTx(t){ const tx = Object.assign({ id: rnd6() + Date.now(), at: Date.now(), status:'Completed' }, t); st.txns.unshift(tx); st.txns = st.txns.slice(0, 40); save(); return tx.id; }
+  function settleTx(id, status = 'Completed'){ const tx = st.txns.find(t => t.id === id); if (!tx || tx.status === status) return null; tx.status = status; save(); return tx; }
 
   /* ---------- builders ---------- */
   function inp(k, label, o = {}){
@@ -404,11 +405,12 @@ label.btn{text-decoration:none}
   const EARN = ['Salary','Self-employed','Business owner','Social grant','Pension','Allowance','Investment income','Other'];
   const BANKS = { 'Absa':'632005', 'African Bank':'430000', 'Capitec':'470010', 'Discovery Bank':'679000', 'FNB':'250655', 'Investec':'580105', 'Nedbank':'198765', 'Standard Bank':'051001', 'TymeBank':'678910' };
   const EFT = { std:{ name:'EFT', fee:2.85 }, imm:{ name:'Immediate EFT', fee:20 } };
+  const BUNDLES = { d500:{ name:'500MB', price:49, days:30 }, d1g:{ name:'1GB', price:85, days:30 }, d3g:{ name:'3GB', price:199, days:30 }, d10g:{ name:'10GB', price:399, days:30 } };
 
   /* ---------- screens ---------- */
   const S = {
     hub:{ hub:true },
-    gate:{ over:'hub', modal:{ mark:true, title:'Activate your wallet first', html:`<p class="center">Top ups and withdrawals need an active TelkomPay wallet. Set one up, or use a demo wallet with a test balance of R1 444.00.</p>`, foot:[B('Use demo wallet','act:demo'), B('Set up wallet','su_1','secondary')] } },
+    gate:{ over:'hub', modal:{ mark:true, title:'Activate your wallet first', html:`<p class="center">Buying, top ups and withdrawals need an active TelkomPay wallet. Set one up, or use a demo wallet with a test balance of R1 444.00.</p>`, foot:[B('Use demo wallet','act:demo'), B('Set up wallet','su_1','secondary')] } },
 
     /* onboarding */
     ob_welcome:{ title:'Wallet', tabs:true, body: () =>
@@ -460,7 +462,7 @@ label.btn{text-decoration:none}
     cam_perm:{ over:'su_5', modal:{ title:'Enable camera permissions', html:`<p><b>Please enable camera access in your device settings.</b></p><p style="font-size:12.5px">You will not be able to continue without enabling camera access.</p>`, row:true, foot:[B('Deny','su_5','secondary'), B('Allow access','cam_instr')] } },
     cam_instr:{ over:'su_5', modal:{ title:'Verify your identity with a video of your profile.', html:`<ul><li><span>Position your face to fit into the oval shape.</span></li><li><span>Click the button to start recording a video.</span></li><li><span>Follow the on-screen instructions to guide you to complete the process.</span></li></ul><input class="sr" type="file" id="file_vid" data-file="vid" accept="video/*" capture="user">`, row:true, foot:[B('Cancel','su_5','secondary'), B('Take video','file_vid','primary','label')] } },
     su_submitting:{ state:true, auto:'act:finishSetup', delay:1800, body: () => `<div class="spinner" role="img" aria-label="Loading"></div><h2>Submitting</h2>` },
-    su_done: done('Wallet successfully activated', () => `<p>Welcome, ${esc(v('first'))}. Your wallet has been successfully activated. You can now view your balance, top up wallet and make a withdrawal from your MyTelkom app.</p>`),
+    su_done: done('Wallet successfully activated', () => `<p>Welcome, ${esc(v('first'))}. Your wallet has been successfully activated with an available balance of <b>${R(st.available)}</b>. You can now buy airtime or data, top up your wallet and make a withdrawal from your MyTelkom app.</p>`),
 
     /* wallet verification (existing TelkomPay users) */
     vf_id:{ title:'Wallet verification', body: () => head('ID verification', 1, 3, 'Enter the ID number associated with your TelkomPay account.') + card(inp('vid_no','RSA ID number',{ mode:'numeric', max:16, ph:'13 digits' })),
@@ -492,7 +494,7 @@ label.btn{text-decoration:none}
     otp_locked:{ over:'otp', modal:{ mark:true, title:'Incorrect OTP', html:`<p class="center">You've entered the incorrect OTP. You will not be able to continue with your verification.</p><div class="row-link" style="padding:14px;font-size:14px;cursor:default"><span style="display:flex;gap:10px;align-items:center">${I.bank}<span>Visit us in store<small>Go to your nearest Telkom store for assistance.</small></span></span></div>`, foot:[B('Back to homepage','act:home')] } },
     otp_expired:{ over:'otp', modal:{ mark:true, title:'Expired OTP', html:`<p class="center">The OTP you've entered is expired.<br>Please retry and request a new OTP.</p>`, foot:[B('Resend OTP','act:resend')] } },
     vf_submitting:{ state:true, auto:'act:finishVerify', delay:1800, body: () => `<div class="spinner" role="img" aria-label="Loading"></div><h2>Submitting</h2>` },
-    vf_done: done('Wallet successfully activated', '<p>Your wallet has been successfully activated. You can now view your balance, top up wallet and make a withdrawal from your MyTelkom app.</p>'),
+    vf_done: done('Wallet successfully activated', () => `<p>Your wallet has been successfully activated with an available balance of <b>${R(st.available)}</b>. You can now buy airtime or data, top up your wallet and make a withdrawal from your MyTelkom app.</p>`),
 
     /* top up */
     tu_home:{ title:'Top up wallet', tabs:true, body: () => walletCard(false) + `<div class="sec-t">How would you like to top up?</div>` +
@@ -533,17 +535,23 @@ label.btn{text-decoration:none}
         card(`<h4>Enter your top up amount</h4>${inp('samt','Top up amount',{ pre:'R', mode:'decimal', ph:'0.00', help:'The minimum amount you can top up is R50.' })}`),
       check: () => need('samt'),
       submit: () => { if (!amountCheck('samt', 50, 5000)) return null; const a = r2(num(F.samt)); const ref = rnd6();
-        LAST = { amt:a, ref }; addTx({ t:'Cash top up · Pick n Pay / Boxer', amt:r2(a - 6), status:'Waiting for payment' }); delete F.samt;
+        LAST = { amt:a, ref, tx: addTx({ t:'Cash top up · Pick n Pay / Boxer', amt:r2(a - 6), status:'Waiting for payment' }) }; delete F.samt;
         sms('TelkomPay', `Your cash top up reference is <span class="code">${ref}</span>. Pay ${R(a)} at any Pick n Pay or Boxer till.`);
         return 'tu_store_2'; },
       foot:[B('Cancel','tu_home','secondary'), B('Continue','submit')] },
     tu_store_2:{ title:'Cash top up', body: () => head('Cash at a store', 2, 2, "Top up your wallet at a Pick n Pay or Boxer. We've sent this reference to you by SMS (Fee R6.00).") +
         card(`<p class="center" style="font-size:13px">Please give ${R(LAST.amt || 0)} to the teller with the reference number:</p><div class="code">${LAST.ref || ''}</div>`, 'tint') +
-        card(`<h4>Follow these steps</h4>${howto(["From the menu, select 'Value Added Services'", "Select 'Mobile'", "Select 'Deposit'", "Select 'uKheshe'", `Enter the reference number ${LAST.ref || ''}`])}`),
-      foot:[B('Back','tu_home','secondary'), B('Done','wallet_home')] },
+        card(`<h4>Follow these steps</h4>${howto(["From the menu, select 'Value Added Services'", "Select 'Mobile'", "Select 'Deposit'", "Select 'uKheshe'", `Enter the reference number ${LAST.ref || ''}`])}`) +
+        `<p class="sub center">Prototype: tap <b>I've paid at the till</b> to load ${R(r2((LAST.amt || 0) - 6))} to your wallet.</p>`,
+      foot:[B('Back','tu_home','secondary'), B("I've paid at the till",'act:paidStore')] },
     tu_atm:{ title:'ATM top up', body: () => head('ATM', 0, 0, 'Deposit money at a Nedbank ATM to top up your wallet. The amount will reflect in your wallet immediately (Fee 1.7%).') +
-        card(`<h4>What to do</h4>${howto(['Find a <b>Nedbank ATM</b>.', 'Select to make a deposit.', 'Enter account number <b>1196782040</b>.', `Use your <b>wallet's QR number ${st.ref}</b> as a reference.`])}`),
-      foot:[B('Back','tu_home')] },
+        card(`<h4>What to do</h4>${howto(['Find a <b>Nedbank ATM</b>.', 'Select to make a deposit.', 'Enter account number <b>1196782040</b>.', `Use your <b>wallet's QR number ${st.ref}</b> as a reference.`])}`) +
+        card(`<h4>How much did you deposit?</h4>${inp('atamt','Deposit amount',{ pre:'R', mode:'decimal', ph:'0.00', help:'Fee 1.7% of the amount' })}`),
+      live: () => { const a = num(F.atamt), el = screenEl.querySelector('#h_atamt'); if (el) el.textContent = a ? `Fee ${R(r2(a * .017))} · ${R(r2(a - r2(a * .017)))} will reflect in your wallet` : 'Fee 1.7% of the amount'; },
+      check: () => need('atamt'),
+      submit: () => { if (!amountCheck('atamt', 50, 5000)) return null; const a = r2(num(F.atamt)), net = r2(a - r2(a * .017));
+        st.available = r2(st.available + net); addTx({ t:'ATM deposit · Nedbank', amt:net }); LAST = { amt:net }; delete F.atamt; return 'tu_done'; },
+      foot:[B('Back','tu_home','secondary'), B("I've made the deposit",'submit')] },
 
     /* withdraw */
     wd_home:{ title:'Withdraw wallet', tabs:true, body: () => walletCard(false) + `<div class="sec-t">How would you like to make a withdrawal?</div>` + rowLink('bank','EFT','wd_eft_1') + rowLink('cash','Cash at a store','wd_store_1') + rowLink('atm','Cash Express ATM','wd_atm_1') },
@@ -577,29 +585,55 @@ label.btn{text-decoration:none}
       check: () => need('stamt'),
       submit: () => { if (!amountCheck('stamt', 50, 3000, st.available, 0, 10)) return null; const a = r2(num(F.stamt)), tok = rnd6();
         st.available = r2(st.available - a); st.reserved = r2(st.reserved + a);
-        addTx({ t:'Cash withdrawal · Pick n Pay / Boxer', amt:-a, status:'Ready to collect' }); LAST = { amt:a, tok }; delete F.stamt;
+        LAST = { amt:a, tok, tx: addTx({ t:'Cash withdrawal · Pick n Pay / Boxer', amt:-a, status:'Ready to collect' }) }; delete F.stamt;
         sms('TelkomPay', `Your cash withdrawal token is <span class="code">${tok}</span>. Show it to the teller to collect ${R(a)}.`);
         return 'wd_store_2'; },
       foot:[B('Cancel','wd_home','secondary'), B('Continue','submit')] },
     wd_store_2:{ title:'Cash withdrawal', body: () => head('Cash at a store', 2, 2, "We've sent this token to you by SMS.") +
         card(`<p class="center" style="font-size:13px">Show the teller this token to collect ${R(LAST.amt || 0)}:</p><div class="code">${LAST.tok || ''}</div>`, 'tint') +
-        card(`<h4>Follow these steps</h4>${howto(['Go to the till at any Pick n Pay or Boxer', "Tell the teller you'd like a uKheshe withdrawal", `Give the teller the token ${LAST.tok || ''}`, 'Collect your cash and slip'])}`),
-      foot:[B('Back','wd_home','secondary'), B('Done','wallet_home')] },
+        card(`<h4>Follow these steps</h4>${howto(['Go to the till at any Pick n Pay or Boxer', "Tell the teller you'd like a uKheshe withdrawal", `Give the teller the token ${LAST.tok || ''}`, 'Collect your cash and slip'])}`) +
+        `<p class="sub center">Prototype: tap <b>I've collected my cash</b> to finish the withdrawal.</p>`,
+      foot:[B('Back','wd_home','secondary'), B("I've collected my cash",'act:collect')] },
     wd_atm_1:{ title:'ATM withdrawal', body: () => head('Cash Express ATM', 1, 2, 'To make the withdrawal, find a Cash Express ATM. We will create and SMS you an OTP.') + walletCard(false) +
         card(`<h4>Enter your withdrawal amount</h4>${inp('aamt','Withdrawal amount',{ pre:'R', mode:'decimal', ph:'0.00', help:'Amounts must be in multiples of R50. Maximum R3 000 per day.' })}<button type="button" class="btn secondary block" data-go="wd_atm_find">Find a Cash Express ATM</button>`),
       check: () => need('aamt'),
       submit: () => { if (!amountCheck('aamt', 50, 3000, st.available, 0, 50)) return null; const a = r2(num(F.aamt)), code = rnd6();
         const exp = new Date(Date.now() + 2 * 864e5); const expTxt = exp.toLocaleDateString('en-ZA', { day:'numeric', month:'long' });
         st.available = r2(st.available - a); st.reserved = r2(st.reserved + a);
-        addTx({ t:'Cash Express ATM withdrawal', amt:-a, status:'Ready to collect' }); LAST = { amt:a, code, expTxt }; delete F.aamt;
+        LAST = { amt:a, code, expTxt, tx: addTx({ t:'Cash Express ATM withdrawal', amt:-a, status:'Ready to collect' }) }; delete F.aamt;
         sms('TelkomPay', `Your Cash Express ATM OTP is <span class="code">${code}</span> for ${R(a)}. It expires on ${expTxt} at 23:59.`);
         return 'wd_atm_2'; },
       foot:[B('Cancel','wd_home','secondary'), B('Continue','submit')] },
     wd_atm_2:{ title:'ATM withdrawal', body: () => head('Cash Express ATM', 2, 2, 'To make the withdrawal, find a Cash Express ATM. We have sent you this OTP by SMS.') +
         card(`<p class="center" style="font-size:13px">Your Cash Express ATM OTP to the value of ${R(LAST.amt || 0)} is:</p><div class="code">${LAST.code || ''}</div>`, 'tint') +
         `<div class="alert">${I.bulb}<div><h4>Please note</h4><p>Your OTP expires on ${LAST.expTxt || ''} at 23:59. If not claimed, the amount will return to your available balance.</p></div></div>` +
-        card(`<h4>Teller instructions</h4>${howto(['Find your nearest Cash Express ATM', 'Select cardless transactions', `Enter the OTP ${LAST.code || ''}, the amount as well as your phone number`])}<button type="button" class="btn secondary block" data-go="wd_atm_find">Find a Cash Express ATM</button>`),
-      foot:[B('Back','wd_home','secondary'), B('Done','wallet_home')] },
+        card(`<h4>Teller instructions</h4>${howto(['Find your nearest Cash Express ATM', 'Select cardless transactions', `Enter the OTP ${LAST.code || ''}, the amount as well as your phone number`])}<button type="button" class="btn secondary block" data-go="wd_atm_find">Find a Cash Express ATM</button>`) +
+        `<p class="sub center">Prototype: tap <b>I've collected my cash</b> to finish the withdrawal.</p>`,
+      foot:[B('Back','wd_home','secondary'), B("I've collected my cash",'act:collect')] },
+    wd_collected: done('Cash collected', () => `<div class="sumbox center"><div class="amt">${R(LAST.amt || 0)}</div><p>Withdrawn from your wallet.<br>Your balance is <b>${R(st.available + st.reserved)}</b></p></div>`),
+
+    /* buy airtime or data */
+    by_1:{ title:'Buy', tabs:true, body: () => walletCard(false) + `<div class="sec-t">What would you like to buy?</div>` +
+        card(rg('bytype', [['air','Airtime'],['data','Data']], { def:'air', re:true }) + inp('bymob','Mobile number',{ mode:'tel', ph:'081 234 5678', max:13 }) +
+          (F.bytype === 'data'
+            ? `<div class="fld"><span>Choose a bundle</span></div>${optc('bybundle', Object.entries(BUNDLES).map(([k, b]) => [k, b.name, `${R(b.price)} · valid ${b.days} days`]))}`
+            : inp('byamt','Airtime amount',{ pre:'R', mode:'decimal', ph:'0.00', help:'From R5 to R1 000.' }))),
+      check: () => need('bymob') && (F.bytype === 'data' ? !!F.bybundle : need('byamt')),
+      submit: () => { const e = mobErr(F.bymob); if (e) return err('bymob', e), null;
+        if (F.bytype === 'data') { if (BUNDLES[F.bybundle].price > st.available) return err('bymob', `You don't have enough available balance for this bundle. Your available balance is ${R(st.available)}.`), null; return 'by_2'; }
+        return amountCheck('byamt', 5, 1000, st.available) ? 'by_2' : null; },
+      foot:[B('Cancel','wallet_home','secondary'), B('Continue','submit')] },
+    by_2:{ title:'Buy', body: () => { const b = F.bytype === 'data' ? BUNDLES[F.bybundle] : null, a = b ? b.price : r2(num(F.byamt));
+        return card(`<h4>You're about to buy ${b ? 'data' : 'airtime'}</h4><div class="kv"><span>Mobile number</span><b>${esc(mob(F.bymob))}</b><span>${b ? 'Bundle' : 'Airtime'}</span><b>${b ? esc(b.name) : R(a)}</b><span>Paid from</span><b>Wallet</b><span>Total</span><b>${R(a)}</b><span>Balance after</span><b>${R(r2(st.available - a))}</b></div>`); },
+      submit: () => { const b = F.bytype === 'data' ? BUNDLES[F.bybundle] : null, a = b ? b.price : r2(num(F.byamt)), to = mob(F.bymob);
+        if (a > st.available) return 'by_1';
+        st.available = r2(st.available - a);
+        addTx({ t: b ? `${b.name} data · ${to}` : `Airtime · ${to}`, amt:-a });
+        sms('TelkomPay', `You bought ${b ? b.name + ' data' : R(a) + ' airtime'} for ${to}. Your wallet balance is ${R(st.available)}.`);
+        LAST = { amt:a, what: b ? `${b.name} data` : 'Airtime', to }; ['byamt','bybundle'].forEach(k => delete F[k]);
+        return 'by_done'; },
+      foot:[B('Back','back','secondary'), B('Buy now','submit')] },
+    by_done: done('Purchase successful', () => `<div class="sumbox center"><div class="amt">${R(LAST.amt || 0)}</div><p>${esc(LAST.what || '')} for ${esc(LAST.to || '')}.<br>Your available balance is <b>${R(st.available)}</b></p></div>`),
     wd_atm_find:{ title:'Find an ATM', body: () => `<div class="ph"><h2>Find a Cash Express ATM</h2></div>` + card(sel('aprov','Province', PROVINCES) + inp('acity','City/Town',{ ph:'e.g. Pretoria' })) +
         (v('aprov') && v('acity') ? card(`<h4>Cash Express ATMs near ${esc(v('acity'))}</h4><p style="font-size:12.5px;color:var(--app-muted)">Sample results for the prototype.</p><div class="kv"><span>${esc(v('acity'))} Central Shell</span><b>1.2 km</b><span>${esc(v('acity'))} Mall Spar</span><b>2.8 km</b><span>${esc(v('acity'))} Plaza Engen</span><b>4.1 km</b></div>`) : ''),
       check: () => need('aprov','acity'), submit: () => 'wd_atm_find',
@@ -611,7 +645,8 @@ label.btn{text-decoration:none}
     { go:'su_1', label:'Wallet setup', icon:'user', blurb:'New users: ID, details, income, address, video' },
     { go:'vf_id', label:'Wallet verification', icon:'shield', blurb:'Existing TelkomPay users: ID, contact, OTP' },
     { go:'tu_home', label:'Wallet top up', icon:'up', blurb:'Linked card, cash at a store or ATM' },
-    { go:'wd_home', label:'Withdraw', icon:'outw', blurb:'EFT, cash at a store or Cash Express ATM' }
+    { go:'wd_home', label:'Withdraw', icon:'outw', blurb:'EFT, cash at a store or Cash Express ATM' },
+    { go:'by_1', label:'Buy airtime or data', icon:'cart', blurb:'Paid from your wallet balance' }
   ];
 
   /* ---------- actions ---------- */
@@ -621,6 +656,8 @@ label.btn{text-decoration:none}
     retry: () => { F.otp = ''; return 'otp'; },
     home: () => { OTP = null; return 'hub'; },
     removeCard: () => { st.card = null; save(); return 'tu_home'; },
+    paidStore: () => { const tx = settleTx(LAST.tx); if (tx) st.available = r2(st.available + tx.amt); save(); LAST = { amt: tx ? tx.amt : 0 }; return tx ? 'tu_done' : 'wallet_home'; },
+    collect: () => { const tx = settleTx(LAST.tx); if (tx) st.reserved = r2(Math.max(0, st.reserved + tx.amt)); save(); return tx ? 'wd_collected' : 'wallet_home'; },
     finishSetup: () => { activate('new', `${v('first')} ${v('last')}`.trim()); return 'su_done'; },
     finishVerify: () => { activate('existing', ''); return 'vf_done'; },
     reset: () => { st = blank(); save(); F = {}; OTP = null; hist = []; return 'hub'; }
@@ -636,7 +673,7 @@ label.btn{text-decoration:none}
     if (x === 'label') return `<label class="btn ${k}" for="${g}">${l}</label>`;
     return `<button type="button" class="btn ${k}" data-go="${g}">${l}</button>`;
   }
-  const tabsHTML = () => `<nav class="tabs" aria-label="App navigation">${[['home','Home','hub'],['apps','Apps','hub'],['cart','Buy','hub'],['wallet','Wallet','wallet_home'],['user','Profile','hub']].map(([ic, l, g]) => `<button type="button" class="tab ${ic === 'cart' ? 'buy' : ''} ${ic === 'wallet' ? 'on' : ''}" data-go="${g}"><span class="ic">${I[ic]}</span>${l}</button>`).join('')}</nav>`;
+  const tabsHTML = () => `<nav class="tabs" aria-label="App navigation">${[['home','Home','hub'],['apps','Apps','hub'],['cart','Buy','by_1'],['wallet','Wallet','wallet_home'],['user','Profile','hub']].map(([ic, l, g]) => `<button type="button" class="tab ${ic === 'cart' ? 'buy' : ''} ${(ic === 'cart') === /^by_/.test(cur) && (ic === 'cart' || ic === 'wallet') ? 'on' : ''}" data-go="${g}"><span class="ic">${I[ic]}</span>${l}</button>`).join('')}</nav>`;
   const headerHTML = t => `<header class="app-h"><button type="button" class="icon-btn" data-go="back" aria-label="Back">${I.back}</button><h3>${t}</h3><button type="button" class="icon-btn" aria-label="Help">${I.help}</button></header>`;
   function modalHTML(m){
     return `<div class="scrim"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(String(m.title || 'Message').replace(/<[^>]+>/g, ''))}"><div class="mb">${m.mark ? `<div class="center">${MARK}</div>` : ''}${m.title ? `<h3 ${m.mark ? 'class="center" style="padding:0"' : ''}>${m.title}</h3><button type="button" class="x" data-go="back" aria-label="Close">×</button>` : ''}${m.html}</div><div class="mf ${m.row ? 'row' : ''}">${m.foot.map(btnHTML).join('')}</div></div></div>`;
@@ -670,7 +707,7 @@ label.btn{text-decoration:none}
     if (sid === 'back') { hist.pop(); sid = hist.pop() || 'hub'; }
     if (sid.startsWith('act:')) { const next = ACT[sid.slice(4)](); if (next) go(next); return; }
     let s = S[sid]; if (!s) return;
-    if (/^(tu_|wd_)/.test(sid) && !st.activated) { gateNext = sid; sid = 'gate'; s = S.gate; }
+    if (/^(tu_|wd_|by_)/.test(sid) && !st.activated) { gateNext = sid; sid = 'gate'; s = S.gate; }
     if (s.redirect) { const r = s.redirect(); if (r && r !== sid) { go(r); return; } }
     if (hist[hist.length - 1] !== sid) hist.push(sid);
     if (hist.length > 80) hist.shift();
