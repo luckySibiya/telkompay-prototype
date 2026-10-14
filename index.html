@@ -191,6 +191,18 @@ ol.howto li::before{content:counter(h);width:17px;height:17px;border-radius:50%;
 .state h2{margin:0;font-size:24px;line-height:1.15;font-weight:800;color:var(--app-navy);text-wrap:balance}
 .state p{margin:0;color:var(--app-muted);font-size:14px;line-height:1.5}
 .ring{width:150px;height:150px;border-radius:50%;border:6px solid var(--app-lime);display:grid;place-items:center;color:var(--app-blue)}
+.live{position:relative;flex:1;display:flex;flex-direction:column;background:#061426;color:#fff;overflow:hidden}
+.live video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.live .flash{position:absolute;inset:0;opacity:0;transition:opacity .2s;pointer-events:none}
+.live .mask{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.live #lring{transition:stroke-dashoffset .15s linear}
+.lhead{position:relative;display:flex;align-items:center;gap:8px;padding:14px 12px 0;font-weight:700;font-size:16px}
+.lhead span:first-of-type{flex:1;text-align:center;margin-right:-30px}
+.lhead #lstep{min-width:30px;text-align:right;font-variant-numeric:tabular-nums;opacity:.85}
+.lhead .icon-btn{color:#fff}
+.lprompt{position:relative;margin:auto 20px 0;padding:12px 14px;border-radius:10px;background:rgba(6,20,38,.78);text-align:center;font-weight:700;font-size:17px;line-height:1.3;text-wrap:balance}
+.lfoot{position:relative;padding:14px 18px 22px}
+.lrev{display:block;width:100%;max-height:340px;border-radius:8px;background:#061426;transform:scaleX(-1)}
 .spinner{width:96px;height:96px;border-radius:50%;border:8px solid var(--app-tint);border-top-color:var(--app-blue);animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .sumbox{width:100%;background:var(--app-tint);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:6px}
@@ -409,12 +421,11 @@ label.btn{text-decoration:none}
   const EARN = ['Salary','Self-employed','Business owner','Social grant','Pension','Allowance','Investment income','Other'];
   const BANKS = { 'Absa':'632005', 'African Bank':'430000', 'Capitec':'470010', 'Discovery Bank':'679000', 'FNB':'250655', 'Investec':'580105', 'Nedbank':'198765', 'Standard Bank':'051001', 'TymeBank':'678910' };
   const EFT = { std:{ name:'EFT', fee:2.85 }, imm:{ name:'Immediate EFT', fee:20 } };
-  const BUNDLES = { d500:{ name:'500MB', price:49, days:30 }, d1g:{ name:'1GB', price:85, days:30 }, d3g:{ name:'3GB', price:199, days:30 }, d10g:{ name:'10GB', price:399, days:30 } };
 
   /* ---------- screens ---------- */
   const S = {
     hub:{ hub:true },
-    gate:{ over:'hub', modal:{ mark:true, title:'Activate your wallet first', html:`<p class="center">Buying, top ups and withdrawals need an active TelkomPay wallet. Set one up, or use a demo wallet with a test balance of R1 444.00.</p>`, foot:[B('Use demo wallet','act:demo'), B('Set up wallet','su_1','secondary')] } },
+    gate:{ over:'hub', modal:{ mark:true, title:'Activate your wallet first', html:`<p class="center">Top ups and withdrawals need an active TelkomPay wallet. Set one up, or use a demo wallet with a test balance of R1 444.00.</p>`, foot:[B('Use demo wallet','act:demo'), B('Set up wallet','su_1','secondary')] } },
 
     /* onboarding */
     ob_welcome:{ title:'Wallet', tabs:true, body: () =>
@@ -456,17 +467,30 @@ label.btn{text-decoration:none}
       foot:[B('Back','back','secondary'), B('Continue','submit')] },
     su_5:{ title:'Wallet setup', body: () => head('ID verification', 5, 5, 'Verify your identity with a video of your profile.') +
         card(`<div class="fld"><span>Capture ID video</span></div>` + (F.vid
-          ? `<div class="upload"><span class="doc">${I.vid}</span><div><strong>Profile video</strong><small>${fmtSize(F.vid.size)}</small></div><button type="button" data-rm="vid" aria-label="Remove video">${I.bin}</button></div>`
-          : `<button type="button" class="dropzone" data-go="cam_access">${I.vid}<span>Take your video</span></button>`) +
+          ? `<div class="upload"><span class="doc">${I.vid}</span><div><strong>${F.vid.live ? 'Liveness video' : 'Profile video'}</strong><small>${F.vid.live ? `${F.vid.secs} seconds · ` : ''}${fmtSize(F.vid.size)}</small></div><button type="button" data-rm="vid" aria-label="Remove video">${I.bin}</button></div>`
+          : `<button type="button" class="dropzone" data-go="cam_access">${I.vid}<span>Start liveness check</span></button>`) +
           `<div class="err" id="e_vid" hidden></div><div class="helper">${I.info}<span>This check flashes colours. Use caution if you're photosensitive.</span></div>`),
       check: () => !!F.vid, next:'su_submitting',
       foot:[B('Back','back','secondary'), B('Submit','submit')] },
     cam_access:{ over:'su_5', modal:{ title:'Camera access required', html:`<ul><li><span>Please use a device with a <b>working camera</b>.</span></li><li><span>If your current device doesn't have a working camera, you can <b>send a link to another device</b> to continue.</span></li><li><span>Make sure your <b>camera lens is clean</b> before taking the photo.</span></li></ul>`, foot:[B('Continue on this device','cam_perm'), B('Send me a link','cam_link','secondary')] } },
     cam_link:{ over:'su_5', modal:{ title:'Continue on your phone', html:`<p>Scan this code with your phone camera to open the prototype there and record your video.</p><div class="qrbox">${QR}</div>`, foot:[B('Close','su_5')] } },
     cam_perm:{ over:'su_5', modal:{ title:'Enable camera permissions', html:`<p><b>Please enable camera access in your device settings.</b></p><p style="font-size:12.5px">You will not be able to continue without enabling camera access.</p>`, row:true, foot:[B('Deny','su_5','secondary'), B('Allow access','cam_instr')] } },
-    cam_instr:{ over:'su_5', modal:{ title:'Verify your identity with a video of your profile.', html:`<ul><li><span>Position your face to fit into the oval shape.</span></li><li><span>Click the button to start recording a video.</span></li><li><span>Follow the on-screen instructions to guide you to complete the process.</span></li></ul><input class="sr" type="file" id="file_vid" data-file="vid" accept="video/*" capture="user">`, row:true, foot:[B('Cancel','su_5','secondary'), B('Take video','file_vid','primary','label')] } },
+    cam_instr:{ over:'su_5', modal:{ title:'Verify your identity with a video of your profile.', html:`<ul><li><span>Position your face to fit into the oval shape.</span></li><li><span>Click the button to start recording a video.</span></li><li><span>Follow the on-screen instructions to guide you to complete the process.</span></li></ul>`, row:true, foot:[B('Cancel','su_5','secondary'), B('Open camera','act:camStart')] } },
+    cam_denied:{ over:'su_5', modal:{ title:"We couldn't open your camera", html: () => `<p>${esc(LIVE.why || 'Camera access was blocked.')}</p><p style="font-size:12.5px">Allow camera access for this site in your browser settings and try again, or upload a video of your face instead.</p><input class="sr" type="file" id="file_vid" data-file="vid" accept="video/*" capture="user">`, foot:[B('Try again','act:camStart'), B('Upload a video instead','file_vid','secondary','label'), B('Cancel','su_5','secondary')] } },
+    live_fail:{ over:'su_5', modal:{ title:'Liveness check not passed', html: () => `<p>${esc(LIVE.why)}</p><p style="font-size:12.5px">Make sure your face is well lit and inside the oval, then follow each prompt as it appears.</p>`, foot:[B('Try again','act:camStart'), B('Cancel','su_5','secondary')] } },
+    liveness:{ raw:true, body: () => `<div class="live">
+        <video id="lv" autoplay playsinline muted></video><div class="flash" id="lflash"></div>
+        <svg class="mask" viewBox="0 0 100 160" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><defs><mask id="hole" maskUnits="userSpaceOnUse" x="-200" y="-200" width="500" height="560"><rect x="-200" y="-200" width="500" height="560" fill="#fff"/><ellipse cx="50" cy="68" rx="30" ry="40" fill="#000"/></mask></defs><rect x="-200" y="-200" width="500" height="560" fill="rgba(6,20,38,.72)" mask="url(#hole)"/><ellipse cx="50" cy="68" rx="30" ry="40" fill="none" stroke="#fff" stroke-width="1" opacity=".7"/><path id="lring" d="M50 28 A30 40 0 1 1 49.99 28" fill="none" stroke="#9BE000" stroke-width="2.2" stroke-linecap="round" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/></svg>
+        <div class="lhead"><button type="button" class="icon-btn" data-go="su_5" aria-label="Close camera">${I.back}</button><span>Liveness check</span><span id="lstep"></span></div>
+        <div class="lprompt" id="lprompt" role="status" aria-live="assertive">Position your face inside the oval</div>
+        <div class="lfoot"><button type="button" class="btn primary block" id="lgo" data-go="act:liveRec">Start recording</button></div>
+      </div>`,
+      mount: () => { const vEl = screenEl.querySelector('#lv'); if (vEl && LIVE.stream) { vEl.srcObject = LIVE.stream; vEl.play().catch(() => {}); } } },
+    live_review:{ title:'Wallet setup', body: () => head('ID verification', 5, 5, 'Liveness check complete. Check your video, then use it or record it again.') +
+        card(`<video class="lrev" src="${LIVE.url || ''}" controls playsinline></video><div class="kv" style="margin-top:10px"><span>Length</span><b>${LIVE.secs || 0} seconds</b><span>Size</span><b>${fmtSize(LIVE.size || 0)}</b><span>Liveness</span><b style="color:#2e9e3f">Passed</b></div>`),
+      foot:[B('Record again','act:camStart','secondary'), B('Use this video','act:liveUse')] },
     su_submitting:{ state:true, auto:'act:finishSetup', delay:1800, body: () => `<div class="spinner" role="img" aria-label="Loading"></div><h2>Submitting</h2>` },
-    su_done: done('Wallet successfully activated', () => `<p>Welcome, ${esc(v('first'))}. Your wallet has been successfully activated with an available balance of <b>${R(st.available)}</b>. You can now buy airtime or data, top up your wallet and make a withdrawal from your MyTelkom app.</p>`),
+    su_done: done('Wallet successfully activated', () => `<p>Welcome, ${esc(v('first'))}. Your wallet has been successfully activated with an available balance of <b>${R(st.available)}</b>. You can now view your balance, top up your wallet and make a withdrawal from your MyTelkom app.</p>`),
 
     /* wallet verification (existing TelkomPay users) */
     vf_id:{ title:'Wallet verification', body: () => head('ID verification', 1, 3, 'Enter the ID number associated with your TelkomPay account.') + card(inp('vid_no','RSA ID number',{ mode:'numeric', max:16, ph:'13 digits' })),
@@ -498,7 +522,7 @@ label.btn{text-decoration:none}
     otp_locked:{ over:'otp', modal:{ mark:true, title:'Incorrect OTP', html:`<p class="center">You've entered the incorrect OTP. You will not be able to continue with your verification.</p><div class="row-link" style="padding:14px;font-size:14px;cursor:default"><span style="display:flex;gap:10px;align-items:center">${I.bank}<span>Visit us in store<small>Go to your nearest Telkom store for assistance.</small></span></span></div>`, foot:[B('Back to homepage','act:home')] } },
     otp_expired:{ over:'otp', modal:{ mark:true, title:'Expired OTP', html:`<p class="center">The OTP you've entered is expired.<br>Please retry and request a new OTP.</p>`, foot:[B('Resend OTP','act:resend')] } },
     vf_submitting:{ state:true, auto:'act:finishVerify', delay:1800, body: () => `<div class="spinner" role="img" aria-label="Loading"></div><h2>Submitting</h2>` },
-    vf_done: done('Wallet successfully activated', () => `<p>Your wallet has been successfully activated with an available balance of <b>${R(st.available)}</b>. You can now buy airtime or data, top up your wallet and make a withdrawal from your MyTelkom app.</p>`),
+    vf_done: done('Wallet successfully activated', () => `<p>Your wallet has been successfully activated with an available balance of <b>${R(st.available)}</b>. You can now view your balance, top up your wallet and make a withdrawal from your MyTelkom app.</p>`),
 
     /* top up */
     tu_home:{ title:'Top up wallet', tabs:true, body: () => walletCard(false) + `<div class="sec-t">How would you like to top up?</div>` +
@@ -639,28 +663,6 @@ label.btn{text-decoration:none}
       foot:[B('Back','wd_home','secondary'), B("I've collected my cash",'act:collect')] },
     wd_collected: done('Cash collected', () => `<div class="sumbox center"><div class="amt">${R(LAST.amt || 0)}</div><p>Withdrawn from your wallet.<br>Your balance is <b>${R(st.available + st.reserved)}</b></p></div>`),
 
-    /* buy airtime or data */
-    by_1:{ title:'Buy', tabs:true, body: () => walletCard(false) + `<div class="sec-t">What would you like to buy?</div>` +
-        card(rg('bytype', [['air','Airtime'],['data','Data']], { def:'air', re:true }) + inp('bymob','Mobile number',{ mode:'tel', ph:'081 234 5678', max:13 }) +
-          (F.bytype === 'data'
-            ? `<div class="fld"><span>Choose a bundle</span></div>${optc('bybundle', Object.entries(BUNDLES).map(([k, b]) => [k, b.name, `${R(b.price)} · valid ${b.days} days`]))}`
-            : inp('byamt','Airtime amount',{ pre:'R', mode:'decimal', ph:'0.00', help:'From R5 to R1 000.' }))),
-      check: () => need('bymob') && (F.bytype === 'data' ? !!F.bybundle : need('byamt')),
-      submit: () => { const e = mobErr(F.bymob); if (e) return err('bymob', e), null;
-        if (F.bytype === 'data') { if (BUNDLES[F.bybundle].price > st.available) return err('bymob', `You don't have enough available balance for this bundle. Your available balance is ${R(st.available)}.`), null; return 'by_2'; }
-        return amountCheck('byamt', 5, 1000, st.available) ? 'by_2' : null; },
-      foot:[B('Cancel','wallet_home','secondary'), B('Continue','submit')] },
-    by_2:{ title:'Buy', body: () => { const b = F.bytype === 'data' ? BUNDLES[F.bybundle] : null, a = b ? b.price : r2(num(F.byamt));
-        return card(`<h4>You're about to buy ${b ? 'data' : 'airtime'}</h4><div class="kv"><span>Mobile number</span><b>${esc(mob(F.bymob))}</b><span>${b ? 'Bundle' : 'Airtime'}</span><b>${b ? esc(b.name) : R(a)}</b><span>Paid from</span><b>Wallet</b><span>Total</span><b>${R(a)}</b><span>Balance after</span><b>${R(r2(st.available - a))}</b></div>`); },
-      submit: () => { const b = F.bytype === 'data' ? BUNDLES[F.bybundle] : null, a = b ? b.price : r2(num(F.byamt)), to = mob(F.bymob);
-        if (a > st.available) return 'by_1';
-        st.available = r2(st.available - a);
-        addTx({ t: b ? `${b.name} data · ${to}` : `Airtime · ${to}`, amt:-a });
-        sms('TelkomPay', `You bought ${b ? b.name + ' data' : R(a) + ' airtime'} for ${to}. Your wallet balance is ${R(st.available)}.`);
-        LAST = { amt:a, what: b ? `${b.name} data` : 'Airtime', to }; ['byamt','bybundle'].forEach(k => delete F[k]);
-        return 'by_done'; },
-      foot:[B('Back','back','secondary'), B('Buy now','submit')] },
-    by_done: done('Purchase successful', () => `<div class="sumbox center"><div class="amt">${R(LAST.amt || 0)}</div><p>${esc(LAST.what || '')} for ${esc(LAST.to || '')}.<br>Your available balance is <b>${R(st.available)}</b></p></div>`),
     wd_atm_find:{ title:'Find an ATM', body: () => `<div class="ph"><h2>Find a Cash Express ATM</h2></div>` + card(sel('aprov','Province', PROVINCES) + inp('acity','City/Town',{ ph:'e.g. Pretoria' })) +
         (v('aprov') && v('acity') ? card(`<h4>Cash Express ATMs near ${esc(v('acity'))}</h4><p style="font-size:12.5px;color:var(--app-muted)">Sample results for the prototype.</p><div class="kv"><span>${esc(v('acity'))} Central Shell</span><b>1.2 km</b><span>${esc(v('acity'))} Mall Spar</span><b>2.8 km</b><span>${esc(v('acity'))} Plaza Engen</span><b>4.1 km</b></div>`) : ''),
       check: () => need('aprov','acity'), submit: () => 'wd_atm_find',
@@ -672,9 +674,64 @@ label.btn{text-decoration:none}
     { go:'su_1', label:'Wallet setup', icon:'user', blurb:'New users: ID, details, income, address, video' },
     { go:'vf_id', label:'Wallet verification', icon:'shield', blurb:'Existing TelkomPay users: ID, contact, OTP' },
     { go:'tu_home', label:'Wallet top up', icon:'up', blurb:'Linked card, cash at a store or ATM' },
-    { go:'wd_home', label:'Withdraw', icon:'outw', blurb:'EFT, cash at a store or Cash Express ATM' },
-    { go:'by_1', label:'Buy airtime or data', icon:'cart', blurb:'Paid from your wallet balance' }
+    { go:'wd_home', label:'Withdraw', icon:'outw', blurb:'EFT, cash at a store or Cash Express ATM' }
   ];
+
+  /* ---------- liveness ---------- */
+  const LIVE = { stream:null, rec:null, chunks:[], timers:[], tick:null, url:'', size:0, secs:0, ext:'', why:'' };
+  const LSTEPS = [['Look straight at the camera', 3000, 'still'], ['Slowly turn your head to the left', 2600, 'move'], ['Slowly turn your head to the right', 2600, 'move'], ['Blink twice', 2200, 'still']];
+  function stopLive(keepUrl){
+    LIVE.timers.forEach(t => clearTimeout(t)); LIVE.timers = []; if (LIVE.tick) { clearInterval(LIVE.tick); LIVE.tick = null; }
+    if (LIVE.rec && LIVE.rec.state !== 'inactive') { LIVE.rec.onstop = null; try { LIVE.rec.stop(); } catch(e){} }
+    LIVE.rec = null;
+    if (LIVE.stream) { LIVE.stream.getTracks().forEach(t => t.stop()); LIVE.stream = null; }
+    if (!keepUrl && LIVE.url && !(F.vid && F.vid.url === LIVE.url)) { URL.revokeObjectURL(LIVE.url); LIVE.url = ''; }
+  }
+  async function camStart(){
+    stopLive();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) { LIVE.why = "This browser can't record from the camera."; return go('cam_denied'); }
+    try { LIVE.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ ideal:720 }, height:{ ideal:960 } }, audio:false }); }
+    catch(e){ LIVE.why = e && e.name === 'NotAllowedError' ? 'Camera access was blocked.' : e && e.name === 'NotFoundError' ? "We couldn't find a camera on this device." : 'Your camera is busy or unavailable.'; return go('cam_denied'); }
+    go('liveness');
+  }
+  function liveRec(){
+    const vEl = screenEl.querySelector('#lv'), btn = screenEl.querySelector('#lgo'), pr = screenEl.querySelector('#lprompt'), ring = screenEl.querySelector('#lring'), stepEl = screenEl.querySelector('#lstep'), fl = screenEl.querySelector('#lflash');
+    if (!LIVE.stream || !vEl) return;
+    btn.disabled = true; btn.textContent = 'Recording…';
+    const mime = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+    LIVE.chunks = [];
+    try { LIVE.rec = new MediaRecorder(LIVE.stream, mime ? { mimeType:mime } : undefined); } catch(e){ LIVE.why = "This browser can't record from the camera."; return go('cam_denied'); }
+    LIVE.rec.ondataavailable = e => { if (e.data && e.data.size) LIVE.chunks.push(e.data); };
+    // a tiny frame sampler: checks there's light in the oval and that the head actually moves on the turn steps
+    const cv = document.createElement('canvas'); cv.width = 32; cv.height = 40; const cx = cv.getContext('2d', { willReadFrequently:true });
+    let prev = null; const stats = { lum:[], move:{ still:[], move:[] } }; let phase = 'still';
+    const sample = () => { try { cx.drawImage(vEl, 0, 0, 32, 40); const d = cx.getImageData(4, 4, 24, 30).data; let sum = 0, diff = 0; const cur = new Uint8Array(d.length / 4);
+        for (let i = 0, j = 0; i < d.length; i += 4, j++) { const y = (d[i] * 299 + d[i+1] * 587 + d[i+2] * 114) / 1000; cur[j] = y; sum += y; if (prev) diff += Math.abs(y - prev[j]); }
+        stats.lum.push(sum / cur.length); if (prev) stats.move[phase].push(diff / cur.length); prev = cur; } catch(e){} };
+    const total = LSTEPS.reduce((t, x) => t + x[1], 0), t0 = Date.now();
+    const tick = setInterval(() => { sample(); if (ring) ring.setAttribute('stroke-dashoffset', String(Math.max(0, 100 - (Date.now() - t0) / total * 100))); }, 150);
+    LIVE.tick = tick;
+    const clearTick = () => { clearInterval(tick); LIVE.tick = null; };
+    let at = 0;
+    LSTEPS.forEach(([msg, ms, ph], i) => { LIVE.timers.push(setTimeout(() => { phase = ph; pr.textContent = msg; stepEl.textContent = `${i + 1}/${LSTEPS.length}`;
+      if (i === 0 && fl) ['#1aa0ff', '#9BE000', '#ffffff'].forEach((c, k) => LIVE.timers.push(setTimeout(() => { fl.style.background = c; fl.style.opacity = '.28'; LIVE.timers.push(setTimeout(() => fl.style.opacity = '0', 260)); }, 300 + k * 700))); }, at)); at += ms; });
+    LIVE.rec.onstop = () => {
+      clearTick();
+      const lum = stats.lum.length ? stats.lum.reduce((a, b) => a + b, 0) / stats.lum.length : 0;
+      const mv = stats.move.move.length ? stats.move.move.reduce((a, b) => a + b, 0) / stats.move.move.length : 0;
+      const blob = new Blob(LIVE.chunks, { type: (LIVE.rec && LIVE.rec.mimeType) || mime || 'video/webm' });
+      if (LIVE.stream) { LIVE.stream.getTracks().forEach(t => t.stop()); LIVE.stream = null; }
+      LIVE.rec = null;
+      if (!blob.size) { LIVE.why = "The recording didn't save. Please try again."; return go('live_fail'); }
+      if (lum < 28) { LIVE.why = "It's too dark to see your face. Move somewhere brighter and try again."; return go('live_fail'); }
+      if (mv < 1.5) { LIVE.why = "We couldn't see your head turn. Follow each prompt, and keep your face inside the oval."; return go('live_fail'); }
+      if (LIVE.url && !(F.vid && F.vid.url === LIVE.url)) URL.revokeObjectURL(LIVE.url);
+      LIVE.url = URL.createObjectURL(blob); LIVE.size = blob.size; LIVE.secs = Math.round(total / 1000); LIVE.ext = /mp4/.test(blob.type) ? 'mp4' : 'webm';
+      go('live_review');
+    };
+    LIVE.rec.start(500);
+    LIVE.timers.push(setTimeout(() => { pr.textContent = 'Done. Hold still…'; try { LIVE.rec && LIVE.rec.stop(); } catch(e){} }, total));
+  }
 
   /* ---------- actions ---------- */
   const ACT = {
@@ -682,6 +739,9 @@ label.btn{text-decoration:none}
     resend: () => { if (!OTP) return 'hub'; newOtp(); return 'otp'; },
     retry: () => { F.otp = ''; return 'otp'; },
     home: () => { OTP = null; return 'hub'; },
+    camStart: () => { camStart(); return null; },
+    liveRec: () => { liveRec(); return null; },
+    liveUse: () => { F.vid = { name:`liveness-video.${LIVE.ext || 'webm'}`, size:LIVE.size, live:true, secs:LIVE.secs, url:LIVE.url }; return 'su_5'; },
     removeCard: () => { st.card = null; save(); return 'tu_home'; },
     paidStore: () => { const tx = settleTx(LAST.tx); if (tx) st.available = r2(st.available + tx.amt); save(); LAST = { amt: tx ? tx.amt : 0 }; return tx ? 'tu_done' : 'wallet_home'; },
     collect: () => { const tx = settleTx(LAST.tx); if (tx) st.reserved = r2(Math.max(0, st.reserved + tx.amt)); save(); return tx ? 'wd_collected' : 'wallet_home'; },
@@ -700,10 +760,10 @@ label.btn{text-decoration:none}
     if (x === 'label') return `<label class="btn ${k}" for="${g}">${l}</label>`;
     return `<button type="button" class="btn ${k}" data-go="${g}">${l}</button>`;
   }
-  const tabsHTML = () => `<nav class="tabs" aria-label="App navigation">${[['home','Home','hub'],['apps','Apps','hub'],['cart','Buy','by_1'],['wallet','Wallet','wallet_home'],['user','Profile','hub']].map(([ic, l, g]) => `<button type="button" class="tab ${ic === 'cart' ? 'buy' : ''} ${(ic === 'cart') === /^by_/.test(cur) && (ic === 'cart' || ic === 'wallet') ? 'on' : ''}" data-go="${g}"><span class="ic">${I[ic]}</span>${l}</button>`).join('')}</nav>`;
+  const tabsHTML = () => `<nav class="tabs" aria-label="App navigation">${[['home','Home','hub'],['apps','Apps','hub'],['cart','Buy','hub'],['wallet','Wallet','wallet_home'],['user','Profile','hub']].map(([ic, l, g]) => `<button type="button" class="tab ${ic === 'cart' ? 'buy' : ''} ${ic === 'wallet' ? 'on' : ''}" data-go="${g}"><span class="ic">${I[ic]}</span>${l}</button>`).join('')}</nav>`;
   const headerHTML = t => `<header class="app-h"><button type="button" class="icon-btn" data-go="back" aria-label="Back">${I.back}</button><h3>${t}</h3><button type="button" class="icon-btn" aria-label="Help">${I.help}</button></header>`;
   function modalHTML(m){
-    return `<div class="scrim"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(String(m.title || 'Message').replace(/<[^>]+>/g, ''))}"><div class="mb">${m.mark ? `<div class="center">${MARK}</div>` : ''}${m.title ? `<h3 ${m.mark ? 'class="center" style="padding:0"' : ''}>${m.title}</h3><button type="button" class="x" data-go="back" aria-label="Close">×</button>` : ''}${m.html}</div><div class="mf ${m.row ? 'row' : ''}">${m.foot.map(btnHTML).join('')}</div></div></div>`;
+    return `<div class="scrim"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(String(m.title || 'Message').replace(/<[^>]+>/g, ''))}"><div class="mb">${m.mark ? `<div class="center">${MARK}</div>` : ''}${m.title ? `<h3 ${m.mark ? 'class="center" style="padding:0"' : ''}>${m.title}</h3><button type="button" class="x" data-go="back" aria-label="Close">×</button>` : ''}${val(m.html)}</div><div class="mf ${m.row ? 'row' : ''}">${m.foot.map(btnHTML).join('')}</div></div></div>`;
   }
   function hubHTML(){
     return `<div class="hub-hero"><div class="brand">TelkomPay · MyTelkom</div><h2>Wallet prototype</h2><p>Pick a flow and enter your own details. OTPs arrive as an SMS on screen, and money is a test balance on this device.</p></div>
@@ -715,6 +775,7 @@ label.btn{text-decoration:none}
   }
   function screenHTML(s){
     if (s.hub) return hubHTML();
+    if (s.raw) return val(s.body);
     if (s.over) return screenHTML(S[s.over]) + modalHTML(s.modal);
     const foot = val(s.foot);
     if (s.state) return `<div class="state">${val(s.body)}</div>${foot ? `<div class="foot">${foot.map(btnHTML).join('')}</div>` : ''}`;
@@ -734,13 +795,15 @@ label.btn{text-decoration:none}
     if (sid === 'back') { hist.pop(); sid = hist.pop() || 'hub'; }
     if (sid.startsWith('act:')) { const next = ACT[sid.slice(4)](); if (next) go(next); return; }
     let s = S[sid]; if (!s) return;
-    if (/^(tu_|wd_|by_)/.test(sid) && !st.activated) { gateNext = sid; sid = 'gate'; s = S.gate; }
+    if (cur === 'liveness' && sid !== 'liveness') stopLive(sid === 'live_review');
+    if (/^(tu_|wd_)/.test(sid) && !st.activated) { gateNext = sid; sid = 'gate'; s = S.gate; }
     if (s.redirect) { const r = s.redirect(); if (r && r !== sid) { go(r); return; } }
     if (hist[hist.length - 1] !== sid) hist.push(sid);
     if (hist.length > 80) hist.shift();
     cur = sid;
     screenEl.innerHTML = screenHTML(s);
     const sc = screenEl.querySelector('.scroll'); if (sc && !s.over) sc.scrollTop = 0;
+    if (s.mount) s.mount();
     if (s.auto) timer = setTimeout(() => go(s.auto), s.delay || 2000);
     if (sid === 'otp') {
       const tick = () => { const el = screenEl.querySelector('#otp_t'); if (!OTP || !el) return; const left = Math.max(0, Math.round((OTP.exp - Date.now()) / 1000)); el.textContent = String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0'); if (!left) { clearInterval(otpTimer); go('otp_expired'); } };
