@@ -337,9 +337,10 @@ label.btn{text-decoration:none}
 
   /* ---------- state ---------- */
   const KEY = 'tp_proto_v2';
+  try { localStorage.removeItem(KEY); } catch(e){}
   const blank = () => ({ activated:false, kind:'', name:'', available:0, reserved:0, card:null, txns:[], ref:rnd6() });
-  let st = (() => { try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && typeof s === 'object') return Object.assign(blank(), s); } catch(e){} return blank(); })();
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch(e){} };
+  let st = (() => { try { const s = JSON.parse(sessionStorage.getItem(KEY)); if (s && typeof s === 'object') return Object.assign(blank(), s); } catch(e){} return blank(); })();
+  const save = () => { try { sessionStorage.setItem(KEY, JSON.stringify(st)); } catch(e){} };
   let F = {}, OTP = null, LAST = {}, gateNext = null;
   function activate(kind, name, bal){ const fresh = !st.activated; st.activated = true; st.kind = kind; if (name) st.name = name; if (fresh && !st.txns.length && bal) { st.available = bal; } save(); }
   function addTx(t){ st.txns.unshift(Object.assign({ at: Date.now(), status:'Completed' }, t)); st.txns = st.txns.slice(0, 40); save(); }
@@ -347,7 +348,7 @@ label.btn{text-decoration:none}
   /* ---------- builders ---------- */
   function inp(k, label, o = {}){
     if (F[k] === undefined && o.def !== undefined) F[k] = o.def;
-    return `<div class="fld"><label for="i_${k}">${label}</label><div class="inp" id="w_${k}">${o.pre ? `<span class="pre">${o.pre}</span>` : ''}<input id="i_${k}" data-k="${k}" type="${o.type || 'text'}" value="${esc(F[k] ?? '')}" ${o.mode ? `inputmode="${o.mode}"` : ''} ${o.ph ? `placeholder="${esc(o.ph)}"` : ''} ${o.max ? `maxlength="${o.max}"` : ''} autocomplete="${o.ac || 'off'}">${o.icon ? I[o.icon] : ''}</div><div class="err" id="e_${k}" hidden></div>${o.help ? `<div class="helper">${I.info}<span id="h_${k}">${o.help}</span></div>` : ''}</div>`;
+    return `<div class="fld"><label for="i_${k}">${label}</label><div class="inp" id="w_${k}">${o.pre ? `<span class="pre">${o.pre}</span>` : ''}<input id="i_${k}" data-k="${k}" type="${o.type || 'text'}" value="${esc(F[k] ?? '')}" ${o.mode ? `inputmode="${o.mode}"` : ''} ${o.ph ? `placeholder="${esc(o.ph)}"` : ''} ${o.max ? `maxlength="${o.max}"` : ''} autocomplete="off">${o.icon ? I[o.icon] : ''}</div><div class="err" id="e_${k}" hidden></div>${o.help ? `<div class="helper">${I.info}<span id="h_${k}">${o.help}</span></div>` : ''}</div>`;
   }
   function sel(k, label, opts, o = {}){
     if (F[k] === undefined && o.def) F[k] = o.def;
